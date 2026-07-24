@@ -1,0 +1,14 @@
+.DS_Store
+.build/
+build/
+dist/
+*.pkg
+*.p12
+*.cer
+*.pem
+*.key
+*.mobileprovision
+notary-profile*
+Support/AppIcon.iconset/
+Support/AppIcon.png
+Support/AppIcon.icns

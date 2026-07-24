@@ -1,0 +1,30 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: tests
+    runs-on: macos-14
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Run Swift tests
+        run: swift test
+
+      - name: Check shell scripts
+        run: |
+          bash -n Support/hsreconnect-helper
+          bash -n Scripts/*.sh
+          bash -n Packaging/scripts/postinstall

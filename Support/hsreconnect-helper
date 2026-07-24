@@ -1,0 +1,485 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PID=""
+EXECUTABLE=""
+LOGS_ROOT=""
+SECONDS_TO_BLOCK=3
+IDLE_SECONDS=10
+DRY_RUN=0
+RST_MODE=0
+CHECK_ONLY=0
+HELPER_VERSION="1.0.0"
+ORIGINAL_ARGS=("$@")
+
+usage() {
+  printf '%s\n' "Usage: hsreconnect-helper --pid PID --executable PATH --logs-root PATH [--pf|--rst] [--dry-run] [--check] [--version]"
+  printf '%s\n' "Targets only the verified native Hearthstone Battlegrounds socket from GameNetLogger, with a unique TCP/3724 fallback."
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --pid)
+      PID="${2:?missing pid}"
+      shift 2
+      ;;
+    --executable)
+      EXECUTABLE="${2:?missing executable path}"
+      shift 2
+      ;;
+    --logs-root)
+      LOGS_ROOT="${2:?missing logs root}"
+      shift 2
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --rst)
+      RST_MODE=1
+      shift
+      ;;
+    --pf)
+      RST_MODE=0
+      shift
+      ;;
+    --wifi)
+      printf 'Legacy Wi-Fi mode is disabled in this helper. Use --rst for Hearthstone game-server sockets only.\n' >&2
+      exit 2
+      ;;
+    --global)
+      printf 'Legacy global-network mode is disabled in this helper. Use --rst for Hearthstone game-server sockets only.\n' >&2
+      exit 2
+      ;;
+    --check)
+      CHECK_ONLY=1
+      shift
+      ;;
+    --version)
+      printf '%s\n' "$HELPER_VERSION"
+      exit 0
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ "$DRY_RUN" -eq 0 && "${EUID:-$(id -u)}" -ne 0 ]]; then
+  exec /usr/bin/sudo "$0" "${ORIGINAL_ARGS[@]}"
+fi
+
+if [[ "$CHECK_ONLY" -eq 1 ]]; then
+  exit 0
+fi
+
+validate_native_identity() {
+  local command executable_dir canonical_executable expected_logs_root canonical_logs_root signature identifier team
+
+  if ! [[ "$PID" =~ ^[0-9]+$ ]] || [[ "$PID" -le 1 ]]; then
+    printf 'Invalid native Hearthstone PID: %s\n' "${PID:-missing}" >&2
+    exit 2
+  fi
+  if [[ -z "$EXECUTABLE" || ! -x "$EXECUTABLE" ]]; then
+    printf 'Native Hearthstone executable is missing or not executable: %s\n' "${EXECUTABLE:-missing}" >&2
+    exit 2
+  fi
+  if [[ -z "$LOGS_ROOT" || ! -d "$LOGS_ROOT" ]]; then
+    printf 'Native Hearthstone logs root is missing: %s\n' "${LOGS_ROOT:-missing}" >&2
+    exit 2
+  fi
+
+  executable_dir="$(cd "$(dirname "$EXECUTABLE")" && pwd -P)"
+  canonical_executable="$executable_dir/$(basename "$EXECUTABLE")"
+  if [[ "$canonical_executable" != */Hearthstone.app/Contents/MacOS/Hearthstone ]]; then
+    printf 'Executable is not native Hearthstone: %s\n' "$canonical_executable" >&2
+    exit 2
+  fi
+
+  command="$(/bin/ps -p "$PID" -o command= 2>/dev/null || true)"
+  if [[ -z "$command" ]]; then
+    printf 'Native Hearthstone PID %s is not running.\n' "$PID" >&2
+    exit 2
+  fi
+  if [[ "$command" != "$canonical_executable" && "$command" != "$canonical_executable "* ]]; then
+    printf 'PID %s is not running the verified native Hearthstone executable.\n' "$PID" >&2
+    exit 2
+  fi
+
+  signature="$(/usr/bin/codesign -dv --verbose=4 "$canonical_executable" 2>&1 || true)"
+  identifier="$(printf '%s\n' "$signature" | /usr/bin/awk -F= '$1 == "Identifier" { print $2; exit }')"
+  team="$(printf '%s\n' "$signature" | /usr/bin/awk -F= '$1 == "TeamIdentifier" { print $2; exit }')"
+  if [[ "$identifier" != "unity.Blizzard Entertainment.Hearthstone" || "$team" != "G847MC6JZ5" ]]; then
+    printf 'Native Hearthstone signature mismatch (identifier=%s team=%s).\n' "${identifier:-missing}" "${team:-missing}" >&2
+    exit 2
+  fi
+
+  expected_logs_root="$(cd "$executable_dir/../../.." && pwd -P)/Logs"
+  canonical_logs_root="$(cd "$LOGS_ROOT" && pwd -P)"
+  if [[ "$canonical_logs_root" != "$expected_logs_root" ]]; then
+    printf 'Logs root does not belong to the verified native Hearthstone installation.\n' >&2
+    exit 2
+  fi
+
+  EXECUTABLE="$canonical_executable"
+  LOGS_ROOT="$canonical_logs_root"
+}
+
+is_public_ipv4() {
+  local ip="$1"
+  [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
+
+  IFS=. read -r a b c d <<< "$ip"
+  for octet in "$a" "$b" "$c" "$d"; do
+    [[ "$octet" -ge 0 && "$octet" -le 255 ]] || return 1
+  done
+
+  [[ "$a" -eq 0 ]] && return 1
+  [[ "$a" -eq 10 ]] && return 1
+  [[ "$a" -eq 127 ]] && return 1
+  [[ "$a" -eq 169 && "$b" -eq 254 ]] && return 1
+  [[ "$a" -eq 172 && "$b" -ge 16 && "$b" -le 31 ]] && return 1
+  [[ "$a" -eq 192 && "$b" -eq 168 ]] && return 1
+  [[ "$a" -ge 224 ]] && return 1
+
+  return 0
+}
+
+is_valid_tcp_port() {
+  local port="$1"
+  [[ "$port" =~ ^[0-9]+$ ]] || return 1
+  [[ "$port" -ge 1 && "$port" -le 65535 ]]
+}
+
+collect_connections() {
+  local line conn local remote local_ip local_port remote_ip remote_port
+
+  /usr/sbin/lsof -nP -a -p "$PID" -i4TCP -sTCP:ESTABLISHED -F n 2>/dev/null |
+    while read -r line; do
+      [[ "$line" == n*'->'* ]] || continue
+      conn="${line#n}"
+      local="${conn%%->*}"
+      remote="${conn#*->}"
+
+      local_ip="${local%:*}"
+      local_port="${local##*:}"
+      remote_ip="${remote%:*}"
+      remote_port="${remote##*:}"
+
+      is_public_ipv4 "$remote_ip" || continue
+      [[ "$local_port" =~ ^[0-9]+$ ]] || continue
+      [[ "$remote_port" =~ ^[0-9]+$ ]] || continue
+
+      printf '%s %s %s %s %s\n' "$PID" "$local_ip" "$local_port" "$remote_ip" "$remote_port"
+    done | /usr/bin/sort -u
+}
+
+latest_hs_log_dir() {
+  local latest
+  [[ -d "$LOGS_ROOT" ]] || return 1
+  latest="$(/bin/ls -dt "$LOGS_ROOT"/Hearthstone_* 2>/dev/null | /usr/bin/head -1 || true)"
+  [[ -n "$latest" && -d "$latest" ]] || return 1
+  printf '%s\n' "$latest"
+}
+
+latest_game_server_endpoint() {
+  local dir file endpoint
+  dir="$(latest_hs_log_dir || true)"
+  [[ -n "$dir" ]] || return 1
+
+  for file in "$dir/GameNetLogger.log" "$dir/Hearthstone.log"; do
+    [[ -r "$file" ]] || continue
+    endpoint="$(
+      /usr/bin/sed -nE 's/.*Network\.GotoGameServe\(\) - address= *([0-9.]+):([0-9]+).*/\1 \2/p' "$file" |
+        /usr/bin/tail -1
+    )"
+    if [[ -n "$endpoint" ]]; then
+      printf '%s\n' "$endpoint"
+      return
+    fi
+  done
+
+  return 1
+}
+
+connection_keys() {
+  /usr/bin/awk '{ printf "%s:%s->%s:%s\n", $2, $3, $4, $5 }'
+}
+
+remaining_initial_keys() {
+  local current_keys="$1"
+  /usr/bin/comm -12 \
+    <(printf '%s\n' "$initial_keys" | /usr/bin/sort -u) \
+    <(printf '%s\n' "$current_keys" | /usr/bin/sort -u)
+}
+
+current_connection_keys() {
+  /usr/sbin/netstat -an -p tcp |
+    /usr/bin/awk '
+      $1 == "tcp4" && $6 == "ESTABLISHED" {
+        split($4, local, ".")
+        split($5, remote, ".")
+        if (length(local) >= 5 && length(remote) >= 5) {
+          printf "%s.%s.%s.%s:%s->%s.%s.%s.%s:%s\n",
+            local[1], local[2], local[3], local[4], local[5],
+            remote[1], remote[2], remote[3], remote[4], remote[5]
+        }
+      }
+    '
+}
+
+filter_pfctl_noise() {
+  /usr/bin/grep -v -E \
+    -e '^pfctl: Use of -f option' \
+    -e '^present in the main ruleset' \
+    -e '^See /etc/pf.conf' \
+    -e '^No ALTQ support in kernel' \
+    -e '^ALTQ related functions disabled' || true
+}
+
+LOCK_DIR="/var/run/hsreconnect-helper.lock"
+LOCK_HELD=0
+
+release_lock() {
+  if [[ "$LOCK_HELD" -eq 1 ]]; then
+    /bin/rm -rf "$LOCK_DIR"
+    LOCK_HELD=0
+  fi
+}
+
+acquire_lock() {
+  if /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
+    LOCK_HELD=1
+    printf '%s\n' "$$" > "$LOCK_DIR/pid"
+    trap release_lock EXIT INT TERM
+    return
+  fi
+
+  local lock_pid=""
+  if [[ -r "$LOCK_DIR/pid" ]]; then
+    lock_pid="$(/bin/cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+  fi
+
+  if [[ "$lock_pid" =~ ^[0-9]+$ ]] && /bin/kill -0 "$lock_pid" 2>/dev/null; then
+    printf 'Reconnect already running in helper pid %s.\n' "$lock_pid" >&2
+    exit 6
+  fi
+
+  /bin/rm -rf "$LOCK_DIR"
+  if /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
+    LOCK_HELD=1
+    printf '%s\n' "$$" > "$LOCK_DIR/pid"
+    trap release_lock EXIT INT TERM
+    return
+  fi
+
+  printf 'Reconnect lock is busy.\n' >&2
+  exit 6
+}
+
+validate_native_identity
+connections="$(collect_connections)"
+
+if [[ -z "$connections" ]]; then
+  printf 'No established public IPv4 TCP connections found for the verified native Hearthstone PID %s.\n' "$PID" >&2
+  exit 1
+fi
+
+printf 'Native Hearthstone PID: %s\n' "$PID"
+printf 'Verified executable: %s\n' "$EXECUTABLE"
+printf 'Native logs root: %s\n' "$LOGS_ROOT"
+printf 'Matched native Hearthstone connections:\n'
+printf '%s\n' "$connections" | /usr/bin/awk '{ printf "  pid=%s local=%s:%s remote=%s:%s\n", $1, $2, $3, $4, $5 }'
+printf 'Helper version: %s\n' "$HELPER_VERSION"
+printf 'Fast window: %s seconds; idle fallback: %s seconds\n' "$SECONDS_TO_BLOCK" "$IDLE_SECONDS"
+
+game_endpoint="$(latest_game_server_endpoint || true)"
+game_endpoint_ip=""
+game_endpoint_port=""
+if [[ -n "$game_endpoint" ]]; then
+  read -r game_endpoint_ip game_endpoint_port <<< "$game_endpoint"
+  if is_public_ipv4 "$game_endpoint_ip" && is_valid_tcp_port "$game_endpoint_port"; then
+    printf 'Native GameNetLogger endpoint: %s:%s\n' "$game_endpoint_ip" "$game_endpoint_port"
+  else
+    printf 'Ignoring invalid native GameNetLogger endpoint: %s\n' "$game_endpoint"
+    game_endpoint_ip=""
+    game_endpoint_port=""
+  fi
+else
+  printf 'Native GameNetLogger endpoint: not found\n'
+fi
+
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  acquire_lock
+fi
+
+target_connections=""
+target_source=""
+if [[ -n "$game_endpoint_ip" && -n "$game_endpoint_port" ]]; then
+  target_connections="$(
+    printf '%s\n' "$connections" |
+      /usr/bin/awk -v ip="$game_endpoint_ip" -v port="$game_endpoint_port" '$4 == ip && $5 == port'
+  )"
+  target_count="$(printf '%s\n' "$target_connections" | /usr/bin/awk 'NF { count++ } END { print count + 0 }')"
+  if [[ "$target_count" -ne 1 ]]; then
+    printf 'Native Hearthstone log endpoint %s:%s does not match exactly one established socket owned by PID %s.\n' "$game_endpoint_ip" "$game_endpoint_port" "$PID" >&2
+    exit 5
+  fi
+  target_source="native GameNetLogger endpoint $game_endpoint_ip:$game_endpoint_port"
+else
+  target_connections="$(printf '%s\n' "$connections" | /usr/bin/awk '$5 == 3724')"
+  target_count="$(printf '%s\n' "$target_connections" | /usr/bin/awk 'NF { count++ } END { print count + 0 }')"
+  if [[ "$target_count" -eq 0 ]]; then
+    printf 'No active native Hearthstone Battlegrounds TCP/3724 connection found.\n' >&2
+    exit 5
+  fi
+  if [[ "$target_count" -ne 1 ]]; then
+    printf 'Found %s native Hearthstone TCP/3724 connections without a usable log endpoint; refusing an ambiguous target.\n' "$target_count" >&2
+    exit 5
+  fi
+  target_source="unique native TCP/3724 fallback"
+fi
+
+printf 'Target source: %s\n' "$target_source"
+printf 'Targeted connections:\n'
+printf '%s\n' "$target_connections" | /usr/bin/awk '{ printf "  pid=%s local=%s:%s remote=%s:%s\n", $1, $2, $3, $4, $5 }'
+
+ANCHOR="com.apple/000.hsreconnect"
+TOKEN=""
+printf 'PF anchor: %s\n' "$ANCHOR"
+
+block_action="drop"
+if [[ "$RST_MODE" -eq 1 ]]; then
+  block_action="return-rst"
+fi
+
+if [[ "$RST_MODE" -eq 1 ]]; then
+  rules="$(
+    printf '%s\n' "$target_connections" |
+      /usr/bin/awk -v action="$block_action" '{
+        printf "block %s out quick proto tcp from %s port %s to %s port %s flags any\n", action, $2, $3, $4, $5
+        printf "block %s in quick proto tcp from %s port %s to %s port %s flags any\n", action, $4, $5, $2, $3
+      }'
+  )"
+else
+  rules="$(
+    printf '%s\n' "$target_connections" |
+      /usr/bin/awk -v action="$block_action" '{
+        printf "block %s out quick proto tcp from %s to %s port %s flags any\n", action, $2, $4, $5
+      }'
+  )"
+fi
+
+printf 'PF rules to load:\n%s\n' "$rules"
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  printf 'Dry run: no PF changes made.\n'
+  exit 0
+fi
+
+restore_pf() {
+  /sbin/pfctl -a "$ANCHOR" -F rules >/dev/null 2>&1 || true
+  if [[ -n "$TOKEN" ]]; then
+    /sbin/pfctl -X "$TOKEN" >/dev/null 2>&1 || true
+    TOKEN=""
+  fi
+}
+
+cleanup() {
+  restore_pf
+  release_lock
+}
+trap cleanup EXIT INT TERM
+
+enable_output="$(/sbin/pfctl -E 2>&1 || true)"
+TOKEN="$(printf '%s\n' "$enable_output" | /usr/bin/awk '/Token/ { print $3; exit }')"
+
+printf '%s\n' "$rules" | /sbin/pfctl -a "$ANCHOR" -f - 2> >(filter_pfctl_noise >&2)
+printf 'HSRECONNECT_NETWORK_TOUCHED_AT=%s\n' "$(/bin/date +%s)"
+printf 'PF rules loaded:\n%s\n' "$rules"
+
+state_cleanup_output="$(
+  {
+    printf '%s\n' "$target_connections" |
+      /usr/bin/awk '{ print $2, $4 }' |
+      /usr/bin/sort -u |
+      while read -r local_ip remote_ip; do
+        /sbin/pfctl -k "$local_ip" -k "$remote_ip" 2>&1 || true
+        /sbin/pfctl -k "$remote_ip" -k "$local_ip" 2>&1 || true
+      done
+  } | filter_pfctl_noise
+)"
+printf 'PF state cleanup:\n%s\n' "$state_cleanup_output"
+
+initial_keys="$(printf '%s\n' "$target_connections" | connection_keys)"
+max_ticks="$(/usr/bin/awk -v fast="$SECONDS_TO_BLOCK" -v idle="$IDLE_SECONDS" 'BEGIN { printf "%d", ((fast + idle) * 20) + 0.999 }')"
+fast_ticks="$(/usr/bin/awk -v seconds="$SECONDS_TO_BLOCK" 'BEGIN { printf "%d", (seconds * 20) + 0.999 }')"
+if [[ "$max_ticks" -lt 1 ]]; then
+  max_ticks=1
+fi
+if [[ "$fast_ticks" -lt 1 ]]; then
+  fast_ticks=1
+fi
+
+if [[ "$RST_MODE" -eq 0 ]]; then
+  printf 'Silent outage active for %s seconds using %s.\n' "$SECONDS_TO_BLOCK" "$block_action"
+  /bin/sleep "$SECONDS_TO_BLOCK"
+  printf 'Traffic restored.\n'
+  exit 0
+fi
+
+for tick in $(/usr/bin/seq 1 "$max_ticks"); do
+  /bin/sleep 0.05
+  current_keys="$(current_connection_keys)"
+  remaining="$(remaining_initial_keys "$current_keys")"
+  if [[ -z "$remaining" ]]; then
+    elapsed="$(/usr/bin/awk -v tick="$tick" 'BEGIN { printf "%.2f", tick / 20 }')"
+    printf 'Socket turnover observed after %s seconds using %s.\n' "$elapsed" "$block_action"
+    restore_pf
+
+    for _ in $(/usr/bin/seq 1 300); do
+      /bin/sleep 0.05
+      replacement_endpoint="$(latest_game_server_endpoint || true)"
+      replacement_connections=""
+      if [[ -n "$replacement_endpoint" ]]; then
+        read -r replacement_endpoint_ip replacement_endpoint_port <<< "$replacement_endpoint"
+        if is_public_ipv4 "$replacement_endpoint_ip" && is_valid_tcp_port "$replacement_endpoint_port"; then
+          replacement_connections="$(
+            collect_connections |
+              /usr/bin/awk -v ip="$replacement_endpoint_ip" -v port="$replacement_endpoint_port" '$4 == ip && $5 == port'
+          )"
+        fi
+      fi
+      replacement_keys="$(printf '%s\n' "$replacement_connections" | connection_keys)"
+      new_replacement_keys="$({
+        /usr/bin/comm -13 \
+          <(printf '%s\n' "$initial_keys" | /usr/bin/sort -u) \
+          <(printf '%s\n' "$replacement_keys" | /usr/bin/sort -u)
+      } || true)"
+      if [[ -n "$new_replacement_keys" ]]; then
+        printf 'Native Hearthstone reconnect socket confirmed:\n'
+        printf '  %s\n' "$new_replacement_keys"
+        exit 0
+      fi
+    done
+
+    printf 'Socket dropped but native Hearthstone reconnect was not confirmed within 15 seconds.\n' >&2
+    exit 7
+  fi
+  if [[ "$tick" -eq "$fast_ticks" && "$IDLE_SECONDS" != "0" ]]; then
+    printf 'Fast window expired after %s seconds; socket is idle, keeping exact game-server PF rule armed for up to %s more seconds.\n' "$SECONDS_TO_BLOCK" "$IDLE_SECONDS"
+  fi
+done
+
+total_seconds="$(/usr/bin/awk -v fast="$SECONDS_TO_BLOCK" -v idle="$IDLE_SECONDS" 'BEGIN { printf "%.1f", fast + idle }')"
+printf 'No local TCP reset observed within %s seconds using bidirectional %s.\n' "$total_seconds" "$block_action" >&2
+printf 'The targeted game-server socket stayed established while PF was armed.\n' >&2
+printf 'This means the established game socket stayed idle for the whole active window.\n' >&2
+printf 'Still present:\n%s\n' "$(remaining_initial_keys "$(current_connection_keys)")" >&2
+exit 3

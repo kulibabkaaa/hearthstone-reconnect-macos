@@ -1,0 +1,52 @@
+#!/bin/bash
+set -euo pipefail
+
+TARGET_VOLUME="${3:-/}"
+APP="$TARGET_VOLUME/Applications/HS Reconnect.app"
+SOURCE_HELPER="$APP/Contents/Resources/hsreconnect-helper"
+HELPER_DIR="$TARGET_VOLUME/usr/local/libexec"
+HELPER="$HELPER_DIR/hsreconnect-helper"
+SUDOERS_DIR="$TARGET_VOLUME/etc/sudoers.d"
+SUDOERS="$SUDOERS_DIR/hsreconnect"
+BUNDLE_ID="io.github.kulibabkaaa.HSReconnect"
+
+console_user="$(/usr/bin/stat -f '%Su' /dev/console)"
+if [[ ! "$console_user" =~ ^[A-Za-z0-9._-]+$ ]] ||
+    [[ "$console_user" == "root" ]] ||
+    [[ "$console_user" == "loginwindow" ]] ||
+    [[ "$console_user" == "_mbsetupuser" ]]; then
+    echo "HS Reconnect requires a signed-in console user." >&2
+    exit 1
+fi
+
+if [[ ! -f "$SOURCE_HELPER" ]]; then
+    echo "The HS Reconnect helper is missing from the app." >&2
+    exit 1
+fi
+
+/bin/mkdir -p "$HELPER_DIR" "$SUDOERS_DIR"
+/usr/sbin/chown root:wheel "$HELPER_DIR" "$SUDOERS_DIR"
+
+helper_temp="$(/usr/bin/mktemp "$HELPER_DIR/.hsreconnect-helper.XXXXXX")"
+sudoers_temp="$(/usr/bin/mktemp "$SUDOERS_DIR/.hsreconnect.XXXXXX")"
+
+cleanup() {
+    /bin/rm -f "$helper_temp" "$sudoers_temp"
+}
+trap cleanup EXIT
+
+/usr/bin/install -o root -g wheel -m 755 "$SOURCE_HELPER" "$helper_temp"
+/bin/mv -f "$helper_temp" "$HELPER"
+
+/usr/bin/printf '%s ALL=(root) NOPASSWD: %s\n' \
+    "$console_user" "/usr/local/libexec/hsreconnect-helper" \
+    > "$sudoers_temp"
+/usr/sbin/chown root:wheel "$sudoers_temp"
+/bin/chmod 440 "$sudoers_temp"
+/usr/sbin/visudo -cf "$sudoers_temp" >/dev/null
+/bin/mv -f "$sudoers_temp" "$SUDOERS"
+
+/usr/bin/sudo -H -u "$console_user" \
+    /usr/bin/defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
+
+exit 0
