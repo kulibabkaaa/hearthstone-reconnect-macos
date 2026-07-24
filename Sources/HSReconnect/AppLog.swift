@@ -19,21 +19,15 @@ enum AppLog {
   static func write(_ message: String) {
     queue.async {
       do {
-        try FileManager.default.createDirectory(
-          at: directoryURL,
-          withIntermediateDirectories: true
-        )
+        try ensurePrivateDirectory(at: directoryURL)
         let logURL = directoryURL.appendingPathComponent(
           "\(dailyDateString()).log"
         )
-        if !FileManager.default.fileExists(atPath: logURL.path) {
-          FileManager.default.createFile(
-            atPath: logURL.path,
-            contents: nil
-          )
-        }
+        try ensurePrivateLogFile(at: logURL)
 
-        let safeMessage = redactSensitiveNetworkDetails(message)
+        let safeMessage = boundedLogMessage(
+          redactSensitiveNetworkDetails(message)
+        )
         let line = "\(ISO8601DateFormatter().string(from: Date())) \(safeMessage)\n"
         guard let data = line.data(using: .utf8) else { return }
 
@@ -45,6 +39,52 @@ enum AppLog {
         NSLog("HS Reconnect log write failed")
       }
     }
+  }
+
+  static func ensurePrivateDirectory(at url: URL) throws {
+    let fileManager = FileManager.default
+    if fileManager.fileExists(atPath: url.path) {
+      let attributes = try fileManager.attributesOfItem(
+        atPath: url.path
+      )
+      guard attributes[.type] as? FileAttributeType != .typeSymbolicLink else {
+        throw CocoaError(.fileWriteNoPermission)
+      }
+    } else {
+      try fileManager.createDirectory(
+        at: url,
+        withIntermediateDirectories: true,
+        attributes: [.posixPermissions: 0o700]
+      )
+    }
+    try fileManager.setAttributes(
+      [.posixPermissions: 0o700],
+      ofItemAtPath: url.path
+    )
+  }
+
+  static func ensurePrivateLogFile(at url: URL) throws {
+    let fileManager = FileManager.default
+    if fileManager.fileExists(atPath: url.path) {
+      let attributes = try fileManager.attributesOfItem(
+        atPath: url.path
+      )
+      guard attributes[.type] as? FileAttributeType != .typeSymbolicLink else {
+        throw CocoaError(.fileWriteNoPermission)
+      }
+    } else {
+      guard fileManager.createFile(
+        atPath: url.path,
+        contents: nil,
+        attributes: [.posixPermissions: 0o600]
+      ) else {
+        throw CocoaError(.fileWriteUnknown)
+      }
+    }
+    try fileManager.setAttributes(
+      [.posixPermissions: 0o600],
+      ofItemAtPath: url.path
+    )
   }
 
   private static func dailyDateString() -> String {
@@ -80,4 +120,8 @@ enum AppLog {
       try? FileManager.default.removeItem(at: file)
     }
   }
+}
+
+func boundedLogMessage(_ message: String) -> String {
+  String(message.prefix(16_000))
 }

@@ -65,6 +65,10 @@ final class SettingsWindowController: NSWindowController {
     statusLabel.stringValue = message
     statusLabel.textColor = isError ? .systemRed : .secondaryLabelColor
     statusLabel.toolTip = message
+    NSAccessibility.post(
+      element: statusLabel,
+      notification: .valueChanged
+    )
   }
 
   func setReconnectEnabled(_ enabled: Bool) {
@@ -88,7 +92,10 @@ final class SettingsWindowController: NSWindowController {
     shortcutButton.bezelStyle = .rounded
     shortcutButton.setAccessibilityLabel("Change global shortcut")
     shortcutButton.onValidationMessage = { [weak self] message in
-      self?.setStatus(message)
+      self?.setStatus(
+        message,
+        isError: message != "Shortcut change cancelled."
+      )
     }
     shortcutButton.onRecord = { [weak self] keyCode, modifiers, display in
       guard let self else { return false }
@@ -133,6 +140,7 @@ final class SettingsWindowController: NSWindowController {
     reconnectButton.setAccessibilityLabel("Reconnect now")
 
     statusLabel.textColor = .secondaryLabelColor
+    statusLabel.setAccessibilityLabel("Status")
     statusLabel.lineBreakMode = .byWordWrapping
     statusLabel.maximumNumberOfLines = 2
     statusLabel.setContentCompressionResistancePriority(

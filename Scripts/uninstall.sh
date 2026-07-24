@@ -3,10 +3,14 @@ set -euo pipefail
 
 APP="/Applications/HS Reconnect.app"
 APP_BINARY="$APP/Contents/MacOS/HSReconnect"
+WATCHER_BINARY="$APP/Contents/Library/LoginItems/HS Reconnect Watcher.app/Contents/MacOS/HSReconnectWatcher"
 HELPER="/usr/local/libexec/hsreconnect-helper"
 SUDOERS="/etc/sudoers.d/hsreconnect"
 RECEIPT="io.github.kulibabkaaa.HSReconnect.pkg"
 BUNDLE_ID="io.github.kulibabkaaa.HSReconnect"
+LEGACY_APP="/Applications/Hearthstone Reconnect.app"
+LEGACY_BINARY="$LEGACY_APP/Contents/MacOS/HearthstoneReconnect"
+LEGACY_BUNDLE_ID="com.local.HearthstoneReconnect"
 
 console_user() {
     /usr/bin/stat -f '%Su' /dev/console
@@ -20,6 +24,37 @@ validate_user() {
         [[ "$user" != "_mbsetupuser" ]]
 }
 
+terminate_exact_executable() {
+    local executable="$1"
+    local process_name="$2"
+    local pid command
+
+    while IFS= read -r pid; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        command="$(/bin/ps -p "$pid" -o command= 2>/dev/null || true)"
+        if [[ "$command" == "$executable" ||
+            "$command" == "$executable"\ * ]]; then
+            /bin/kill -TERM "$pid" 2>/dev/null || true
+        fi
+    done < <(/usr/bin/pgrep -x "$process_name" 2>/dev/null || true)
+
+    for _ in $(/usr/bin/seq 1 50); do
+        /bin/sleep 0.02
+        if ! /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
+            return
+        fi
+    done
+
+    while IFS= read -r pid; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        command="$(/bin/ps -p "$pid" -o command= 2>/dev/null || true)"
+        if [[ "$command" == "$executable" ||
+            "$command" == "$executable"\ * ]]; then
+            /bin/kill -KILL "$pid" 2>/dev/null || true
+        fi
+    done < <(/usr/bin/pgrep -x "$process_name" 2>/dev/null || true)
+}
+
 if [[ "${1:-}" != "--privileged" ]]; then
     user="$(console_user)"
     if ! validate_user "$user"; then
@@ -30,8 +65,9 @@ if [[ "${1:-}" != "--privileged" ]]; then
     if [[ -x "$APP_BINARY" ]]; then
         "$APP_BINARY" --unregister-login-item || true
     fi
-    /usr/bin/pkill -x HSReconnectWatcher >/dev/null 2>&1 || true
-    /usr/bin/pkill -x HSReconnect >/dev/null 2>&1 || true
+    terminate_exact_executable "$WATCHER_BINARY" "HSReconnectWatcher"
+    terminate_exact_executable "$APP_BINARY" "HSReconnect"
+    terminate_exact_executable "$LEGACY_BINARY" "HearthstoneReconnect"
 
     exec /usr/bin/sudo "$0" --privileged "$user"
 fi
@@ -47,18 +83,24 @@ if ! validate_user "$user"; then
     exit 1
 fi
 
-user_home="$(/usr/bin/dscl . -read "/Users/$user" NFSHomeDirectory |
-    /usr/bin/awk '{print $2}')"
-if [[ -z "$user_home" || "$user_home" == "/" ]]; then
-    echo "HS Reconnect could not locate the user folder." >&2
-    exit 1
+if [[ -x "$APP_BINARY" ]]; then
+    /usr/bin/sudo -H -u "$user" \
+        "$APP_BINARY" --unregister-login-item >/dev/null 2>&1 || true
 fi
+terminate_exact_executable "$WATCHER_BINARY" "HSReconnectWatcher"
+terminate_exact_executable "$APP_BINARY" "HSReconnect"
+terminate_exact_executable "$LEGACY_BINARY" "HearthstoneReconnect"
 
 /bin/rm -f "$HELPER"
 /bin/rm -f "$SUDOERS"
 /bin/rm -rf "$APP"
-/bin/rm -f "$user_home/Library/Preferences/$BUNDLE_ID.plist"
-/bin/rm -rf "$user_home/Library/Logs/HS Reconnect"
+/bin/rm -rf "$LEGACY_APP"
+/usr/bin/sudo -H -u "$user" \
+    /usr/bin/defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
+/usr/bin/sudo -H -u "$user" \
+    /usr/bin/defaults delete "$LEGACY_BUNDLE_ID" >/dev/null 2>&1 || true
+/usr/bin/sudo -H -u "$user" \
+    /bin/sh -c '/bin/rm -rf "$HOME/Library/Logs/HS Reconnect"'
 /usr/sbin/pkgutil --forget "$RECEIPT" >/dev/null 2>&1 || true
 
 echo "HS Reconnect was removed."

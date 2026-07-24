@@ -63,11 +63,20 @@ Installer identity.
 
 ```sh
 NOTARY_PROFILE="HSReconnect-Notary" \
-Scripts/notarize.sh dist/HS-Reconnect-1.0.0.pkg
+Scripts/notarize.sh submit dist/HS-Reconnect-1.0.0.pkg
 ```
 
-The script submits the package, waits for Apple, staples the ticket, validates
-it, and runs Gatekeeper's installer assessment.
+Save the submission ID printed by Apple. The command returns immediately and
+does not poll. After the submission is accepted, finish it:
+
+```sh
+NOTARY_PROFILE="HSReconnect-Notary" \
+Scripts/notarize.sh finish "SUBMISSION_ID" dist/HS-Reconnect-1.0.0.pkg
+```
+
+The finish command checks the submission once, then staples the ticket,
+validates it, and runs Gatekeeper's installer assessment. If Apple is still
+processing it, the command exits without polling.
 
 ## Draft release
 

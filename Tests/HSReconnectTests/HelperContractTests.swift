@@ -19,5 +19,12 @@ final class HelperContractTests: XCTestCase {
     XCTAssertTrue(helper.contains("IDLE_SECONDS=10"))
     XCTAssertFalse(helper.contains("--seconds)"))
     XCTAssertFalse(helper.contains("--idle-seconds)"))
+    XCTAssertTrue(helper.hasPrefix("#!/bin/bash\n"))
+    XCTAssertTrue(helper.contains("-L \"$EXECUTABLE\""))
+    XCTAssertTrue(
+      helper.contains(
+        "/usr/bin/codesign --verify --strict \"$canonical_executable\""
+      )
+    )
   }
 }

@@ -7,20 +7,44 @@ final class RecorderButton: NSButton {
 
   private var isRecordingShortcut = false
   private var previousTitle = ""
+  private var keyMonitor: Any?
 
   override var acceptsFirstResponder: Bool { true }
 
   func beginRecording() {
     guard !isRecordingShortcut else { return }
-    LegacyApplicationMigration.terminateRunningApplications()
+    guard LegacyApplicationMigration.terminateRunningApplications() else {
+      onValidationMessage?(
+        "Close the older Hearthstone Reconnect app and try again."
+      )
+      return
+    }
     isRecordingShortcut = true
     previousTitle = title
     title = "Press shortcut…"
     window?.makeFirstResponder(self)
+    startKeyMonitor()
   }
 
   override func mouseDown(with event: NSEvent) {
     beginRecording()
+  }
+
+  override func performClick(_ sender: Any?) {
+    beginRecording()
+  }
+
+  override func accessibilityPerformPress() -> Bool {
+    beginRecording()
+    return true
+  }
+
+  override func resignFirstResponder() -> Bool {
+    let didResign = super.resignFirstResponder()
+    if didResign {
+      cancelRecording()
+    }
+    return didResign
   }
 
   override func keyDown(with event: NSEvent) {
@@ -28,11 +52,12 @@ final class RecorderButton: NSButton {
       super.keyDown(with: event)
       return
     }
+    recordShortcut(from: event)
+  }
 
+  private func recordShortcut(from event: NSEvent) {
     if event.keyCode == UInt16(kVK_Escape) {
-      isRecordingShortcut = false
-      title = previousTitle
-      onValidationMessage?("Shortcut change cancelled.")
+      cancelRecording()
       return
     }
 
@@ -43,8 +68,11 @@ final class RecorderButton: NSButton {
       .control,
     ])
     let modifiers = carbonModifiers(from: relevantFlags)
-    guard modifiers != 0 else {
-      onValidationMessage?("Add Command, Shift, Option, or Control.")
+    if let message = shortcutValidationMessage(
+      keyCode: UInt32(event.keyCode),
+      modifiers: modifiers
+    ) {
+      onValidationMessage?(message)
       return
     }
 
@@ -52,6 +80,7 @@ final class RecorderButton: NSButton {
     let keyText = keyName(for: event)
     let display = "\(modifierText)+\(keyText)"
     isRecordingShortcut = false
+    stopKeyMonitor()
 
     if onRecord?(UInt32(event.keyCode), modifiers, display) == true {
       title = display
@@ -59,5 +88,39 @@ final class RecorderButton: NSButton {
     } else {
       title = previousTitle
     }
+  }
+
+  private func startKeyMonitor() {
+    guard keyMonitor == nil else { return }
+    keyMonitor = NSEvent.addLocalMonitorForEvents(
+      matching: .keyDown
+    ) { [weak self] event in
+      guard let self,
+        self.isRecordingShortcut,
+        self.window?.isKeyWindow == true
+      else {
+        return event
+      }
+      self.recordShortcut(from: event)
+      return nil
+    }
+  }
+
+  private func stopKeyMonitor() {
+    guard let keyMonitor else { return }
+    NSEvent.removeMonitor(keyMonitor)
+    self.keyMonitor = nil
+  }
+
+  private func cancelRecording() {
+    guard isRecordingShortcut else { return }
+    isRecordingShortcut = false
+    stopKeyMonitor()
+    title = previousTitle
+    onValidationMessage?("Shortcut change cancelled.")
+  }
+
+  deinit {
+    stopKeyMonitor()
   }
 }

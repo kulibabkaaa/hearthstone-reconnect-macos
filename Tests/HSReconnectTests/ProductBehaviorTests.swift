@@ -1,4 +1,7 @@
 import XCTest
+import AppKit
+import Carbon
+import ServiceManagement
 
 @testable import HSReconnect
 
@@ -26,8 +29,155 @@ final class ProductBehaviorTests: XCTestCase {
     XCTAssertEqual(AppConfiguration.defaultShortcutDisplay, "Cmd+Shift+W")
   }
 
+  func testShortcutDisplayUsesCommandFirst() {
+    XCTAssertEqual(
+      displayModifiers(from: [.command, .shift]),
+      "Cmd+Shift"
+    )
+    XCTAssertEqual(
+      displayModifiers(from: [.command, .option, .control]),
+      "Cmd+Option+Ctrl"
+    )
+  }
+
+  func testAccessibilityPressStartsShortcutRecording() {
+    let button = RecorderButton(title: "Cmd+Shift+W", target: nil, action: nil)
+
+    XCTAssertTrue(button.accessibilityPerformPress())
+    XCTAssertEqual(button.title, "Press shortcut…")
+  }
+
+  func testShortcutRecordingCancelsWhenFocusMovesAway() {
+    let window = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 200, height: 100),
+      styleMask: [.titled],
+      backing: .buffered,
+      defer: false
+    )
+    let button = RecorderButton(title: "Cmd+Shift+W", target: nil, action: nil)
+    window.contentView?.addSubview(button)
+    var message = ""
+    button.onValidationMessage = { message = $0 }
+
+    button.beginRecording()
+    window.makeFirstResponder(nil)
+
+    XCTAssertEqual(button.title, "Cmd+Shift+W")
+    XCTAssertEqual(message, "Shortcut change cancelled.")
+  }
+
+  func testCommandQCannotBecomeTheGlobalShortcut() {
+    XCTAssertEqual(
+      shortcutValidationMessage(
+        keyCode: UInt32(kVK_ANSI_Q),
+        modifiers: UInt32(cmdKey)
+      ),
+      "Choose a shortcut other than Command-Q."
+    )
+  }
+
+  func testCommandOneCanBecomeTheGlobalShortcut() {
+    XCTAssertNil(
+      shortcutValidationMessage(
+        keyCode: UInt32(kVK_ANSI_1),
+        modifiers: UInt32(cmdKey)
+      )
+    )
+  }
+
+  func testInvalidStoredShortcutFallsBackWithoutTrapping() {
+    let defaults = UserDefaults(
+      suiteName: "ProductBehaviorTests.invalidShortcut"
+    )!
+    defer {
+      defaults.removePersistentDomain(
+        forName: "ProductBehaviorTests.invalidShortcut"
+      )
+    }
+    defaults.set(-1, forKey: DefaultsKey.keyCode)
+    defaults.set(Int.max, forKey: DefaultsKey.modifiers)
+
+    let shortcut = storedShortcut(in: defaults)
+
+    XCTAssertEqual(shortcut.keyCode, AppConfiguration.defaultShortcutKeyCode)
+    XCTAssertEqual(shortcut.modifiers, defaultCarbonModifiers())
+    XCTAssertEqual(shortcut.display, AppConfiguration.defaultShortcutDisplay)
+  }
+
+  func testFarFutureCooldownTimestampDoesNotDisableReconnectForever() {
+    XCTAssertEqual(
+      cooldownRemaining(
+        lastReconnectAt: 2_000,
+        now: 1_000
+      ),
+      0
+    )
+  }
+
   func testOpenWithHearthstoneIsEnabledByDefault() {
     XCTAssertTrue(AppConfiguration.openWithHearthstoneByDefault)
+  }
+
+  func testAutoLaunchPreferenceStaysOffWhenApprovalIsRequired() {
+    let suiteName = "ProductBehaviorTests.autoLaunchApproval"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    let service = FakeLoginItemService(
+      status: .notRegistered,
+      statusAfterRegister: .requiresApproval
+    )
+    let controller = AutoLaunchController(
+      service: service,
+      defaults: defaults,
+      stopWatcher: { true }
+    )
+
+    XCTAssertThrowsError(try controller.setEnabled(true).get())
+    XCTAssertFalse(defaults.bool(forKey: DefaultsKey.openWithHearthstone))
+    XCTAssertEqual(service.unregisterCount, 0)
+  }
+
+  func testFailedDefaultAutoLaunchIsNotRetriedAtEveryLaunch() {
+    let suiteName = "ProductBehaviorTests.autoLaunchRetry"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    let service = FakeLoginItemService(
+      status: .notRegistered,
+      statusAfterRegister: .requiresApproval
+    )
+    let controller = AutoLaunchController(
+      service: service,
+      defaults: defaults,
+      stopWatcher: { true }
+    )
+
+    XCTAssertThrowsError(
+      try controller.configureDefaultIfNeeded().get()
+    )
+    XCTAssertNoThrow(
+      try controller.configureDefaultIfNeeded().get()
+    )
+    XCTAssertEqual(service.registerCount, 1)
+  }
+
+  func testAutoLaunchPreferenceTracksTheActualServiceStatus() {
+    let suiteName = "ProductBehaviorTests.autoLaunchStatus"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    defaults.set(true, forKey: DefaultsKey.openWithHearthstone)
+    let service = FakeLoginItemService(
+      status: .requiresApproval,
+      statusAfterRegister: .requiresApproval
+    )
+    let controller = AutoLaunchController(
+      service: service,
+      defaults: defaults,
+      stopWatcher: { true }
+    )
+
+    controller.synchronizeStoredState()
+
+    XCTAssertFalse(defaults.bool(forKey: DefaultsKey.openWithHearthstone))
   }
 
   func testLegacyReconnectAppIsRetired() {
@@ -87,6 +237,122 @@ final class ProductBehaviorTests: XCTestCase {
     XCTAssertFalse(shouldRemoveLog(modifiedAt: sixDaysAgo, now: now))
   }
 
+  func testDiagnosticLogFilesArePrivateToTheCurrentUser() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let logFile = root.appendingPathComponent("test.log")
+
+    try AppLog.ensurePrivateDirectory(at: root)
+    try AppLog.ensurePrivateLogFile(at: logFile)
+
+    let directoryMode = try XCTUnwrap(
+      FileManager.default.attributesOfItem(atPath: root.path)[
+        .posixPermissions
+      ] as? NSNumber
+    ).intValue
+    let fileMode = try XCTUnwrap(
+      FileManager.default.attributesOfItem(atPath: logFile.path)[
+        .posixPermissions
+      ] as? NSNumber
+    ).intValue
+    XCTAssertEqual(directoryMode & 0o777, 0o700)
+    XCTAssertEqual(fileMode & 0o777, 0o600)
+  }
+
+  func testDiagnosticLogMessagesAreBounded() {
+    let message = String(repeating: "x", count: 20_000)
+    XCTAssertEqual(boundedLogMessage(message).count, 16_000)
+  }
+
+  func testPrivilegedFilesRejectLoosePermissionsAndSymlinks() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(
+      at: root,
+      withIntermediateDirectories: true
+    )
+    let file = root.appendingPathComponent("helper")
+    XCTAssertTrue(
+      FileManager.default.createFile(
+        atPath: file.path,
+        contents: Data("#!/bin/bash\n".utf8),
+        attributes: [.posixPermissions: 0o700]
+      )
+    )
+    let attributes = try FileManager.default.attributesOfItem(
+      atPath: file.path
+    )
+    let ownerID = try XCTUnwrap(
+      attributes[.ownerAccountID] as? NSNumber
+    ).intValue
+    let groupID = try XCTUnwrap(
+      attributes[.groupOwnerAccountID] as? NSNumber
+    ).intValue
+
+    XCTAssertNil(
+      privilegedFileIssue(
+        atPath: file.path,
+        expectedPermissions: 0o700,
+        ownerID: ownerID,
+        groupID: groupID
+      )
+    )
+
+    try FileManager.default.setAttributes(
+      [.posixPermissions: 0o777],
+      ofItemAtPath: file.path
+    )
+    XCTAssertNotNil(
+      privilegedFileIssue(
+        atPath: file.path,
+        expectedPermissions: 0o700,
+        ownerID: ownerID,
+        groupID: groupID
+      )
+    )
+
+    let symlink = root.appendingPathComponent("helper-link")
+    try FileManager.default.createSymbolicLink(
+      at: symlink,
+      withDestinationURL: file
+    )
+    XCTAssertNotNil(
+      privilegedFileIssue(
+        atPath: symlink.path,
+        expectedPermissions: 0o777,
+        ownerID: ownerID,
+        groupID: groupID
+      )
+    )
+  }
+
+  func testSudoersAuthorizationBindsTheExactHelperDigest() {
+    XCTAssertEqual(
+      expectedSudoersEntry(
+        user: "test-user",
+        helperData: Data("abc".utf8)
+      ),
+      "test-user ALL=(root) NOPASSWD: "
+        + "sha256:ba7816bf8f01cfea414140de5dae2223"
+        + "b00361a396177a9cb410ff61f20015ad "
+        + "/usr/local/libexec/hsreconnect-helper"
+    )
+  }
+
+  func testProcessOutputCaptureDoesNotDeadlockOnLargeOutput() throws {
+    let result = try runProcessCapturingCombinedOutput(
+      executableURL: URL(fileURLWithPath: "/usr/bin/awk"),
+      arguments: [
+        "BEGIN { for (i = 0; i < 20000; i++) print \"helper output\" }"
+      ]
+    )
+
+    XCTAssertEqual(result.status, 0)
+    XCTAssertGreaterThan(result.output.utf8.count, 200_000)
+  }
+
   func testAutomaticLaunchQuitsWithHearthstoneUnlessUserOpensWindow() {
     XCTAssertTrue(
       shouldQuitWhenHearthstoneCloses(
@@ -106,5 +372,30 @@ final class ProductBehaviorTests: XCTestCase {
         userOpenedWindow: false
       )
     )
+  }
+}
+
+private final class FakeLoginItemService: LoginItemService {
+  var status: SMAppService.Status
+  let statusAfterRegister: SMAppService.Status
+  private(set) var registerCount = 0
+  private(set) var unregisterCount = 0
+
+  init(
+    status: SMAppService.Status,
+    statusAfterRegister: SMAppService.Status
+  ) {
+    self.status = status
+    self.statusAfterRegister = statusAfterRegister
+  }
+
+  func register() throws {
+    registerCount += 1
+    status = statusAfterRegister
+  }
+
+  func unregister() throws {
+    unregisterCount += 1
+    status = .notRegistered
   }
 }

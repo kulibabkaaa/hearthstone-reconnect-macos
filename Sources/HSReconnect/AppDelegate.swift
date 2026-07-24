@@ -18,9 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    LegacyApplicationMigration.terminateRunningApplications()
+    let legacyAppRetired =
+      LegacyApplicationMigration.terminateRunningApplications()
     NSApp.setActivationPolicy(.regular)
     registerDefaults()
+    autoLaunchController.synchronizeStoredState()
     AppLog.prepare()
     AppLog.write(
       launchedForHearthstone
@@ -51,7 +53,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       AppLog.write("Global shortcut pressed")
       self?.runReconnect()
     }
-    registerStoredHotKey()
+    if legacyAppRetired {
+      registerStoredHotKey()
+    } else {
+      AppLog.write("Older reconnect app could not be closed")
+      settingsWindowController.setStatus(
+        "Close the older Hearthstone Reconnect app, then change the shortcut.",
+        isError: true
+      )
+    }
     observeHearthstoneTermination()
 
     if !launchedForHearthstone {
@@ -160,9 +170,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func configureDefaultAutoLaunch() {
-    switch autoLaunchController.configureDefaultIfNeeded() {
+    let result = autoLaunchController.configureDefaultIfNeeded()
+    settingsWindowController.refresh()
+    switch result {
     case .success:
-      settingsWindowController.refresh()
+      break
     case .failure:
       settingsWindowController.setStatus(
         "Automatic opening couldn't be turned on. You can try again below.",
@@ -172,15 +184,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func registerStoredHotKey() {
-    let keyCode = UInt32(
-      UserDefaults.standard.integer(forKey: DefaultsKey.keyCode)
-    )
-    let modifiers = UInt32(
-      UserDefaults.standard.integer(forKey: DefaultsKey.modifiers)
-    )
+    let shortcut = storedShortcut(in: UserDefaults.standard)
+    persistShortcut(shortcut)
     let status = hotKeyManager.register(
-      keyCode: keyCode,
-      modifiers: modifiers
+      keyCode: shortcut.keyCode,
+      modifiers: shortcut.modifiers
     )
     if status != noErr {
       settingsWindowController.setStatus(
@@ -196,12 +204,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     display: String
   ) -> Bool {
     let defaults = UserDefaults.standard
-    let previousKeyCode = UInt32(
-      defaults.integer(forKey: DefaultsKey.keyCode)
-    )
-    let previousModifiers = UInt32(
-      defaults.integer(forKey: DefaultsKey.modifiers)
-    )
+    let previousShortcut = storedShortcut(in: defaults)
+
+    guard shortcutValidationMessage(
+      keyCode: keyCode,
+      modifiers: modifiers
+    ) == nil else {
+      return false
+    }
 
     let status = hotKeyManager.register(
       keyCode: keyCode,
@@ -209,18 +219,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     guard status == noErr else {
       hotKeyManager.register(
-        keyCode: previousKeyCode,
-        modifiers: previousModifiers
+        keyCode: previousShortcut.keyCode,
+        modifiers: previousShortcut.modifiers
       )
       AppLog.write("Shortcut registration failed with status \(status)")
       return false
     }
 
-    defaults.set(Int(keyCode), forKey: DefaultsKey.keyCode)
-    defaults.set(Int(modifiers), forKey: DefaultsKey.modifiers)
-    defaults.set(display, forKey: DefaultsKey.hotkeyDisplay)
+    persistShortcut(
+      StoredShortcut(
+        keyCode: keyCode,
+        modifiers: modifiers,
+        display: display
+      )
+    )
     AppLog.write("Global shortcut changed")
     return true
+  }
+
+  private func persistShortcut(_ shortcut: StoredShortcut) {
+    let defaults = UserDefaults.standard
+    defaults.set(Int(shortcut.keyCode), forKey: DefaultsKey.keyCode)
+    defaults.set(Int(shortcut.modifiers), forKey: DefaultsKey.modifiers)
+    defaults.set(shortcut.display, forKey: DefaultsKey.hotkeyDisplay)
   }
 
   private func observeHearthstoneTermination() {
@@ -260,12 +281,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let lastReconnectAt = UserDefaults.standard.double(
       forKey: DefaultsKey.lastReconnectAt
     )
-    guard lastReconnectAt > 0 else { return 0 }
-    let elapsed = Date().timeIntervalSince1970 - lastReconnectAt
-    guard elapsed >= 0 else {
-      return AppConfiguration.cooldownSeconds
-    }
-    return max(0, AppConfiguration.cooldownSeconds - elapsed)
+    return HSReconnect.cooldownRemaining(
+      lastReconnectAt: lastReconnectAt,
+      now: Date().timeIntervalSince1970
+    )
   }
 
   private func updateReconnectAvailability() {
@@ -337,4 +356,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   @objc private func menuQuit() {
     NSApp.terminate(nil)
   }
+}
+
+func cooldownRemaining(
+  lastReconnectAt: TimeInterval,
+  now: TimeInterval
+) -> TimeInterval {
+  guard lastReconnectAt.isFinite, now.isFinite, lastReconnectAt > 0 else {
+    return 0
+  }
+  let elapsed = now - lastReconnectAt
+  if elapsed < 0 {
+    return -elapsed <= AppConfiguration.cooldownSeconds
+      ? AppConfiguration.cooldownSeconds
+      : 0
+  }
+  return max(0, AppConfiguration.cooldownSeconds - elapsed)
 }
