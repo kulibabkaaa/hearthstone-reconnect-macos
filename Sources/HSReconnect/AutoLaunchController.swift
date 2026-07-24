@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import ServiceManagement
 
 enum AutoLaunchError: Error {
@@ -59,6 +59,7 @@ final class AutoLaunchController {
         if service.status != .notRegistered && service.status != .notFound {
           try service.unregister()
         }
+        stopRunningWatcher()
         UserDefaults.standard.set(
           false,
           forKey: DefaultsKey.openWithHearthstone
@@ -75,9 +76,18 @@ final class AutoLaunchController {
       if service.status != .notRegistered && service.status != .notFound {
         try service.unregister()
       }
+      stopRunningWatcher()
       return true
     } catch {
       return false
+    }
+  }
+
+  private func stopRunningWatcher() {
+    for application in NSRunningApplication.runningApplications(
+      withBundleIdentifier: AppConfiguration.watcherBundleIdentifier
+    ) {
+      application.terminate()
     }
   }
 }
