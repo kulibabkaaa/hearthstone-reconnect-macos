@@ -52,9 +52,6 @@ final class ReconnectService {
       ),
       let installedData = FileManager.default.contents(
         atPath: AppConfiguration.installedHelperPath
-      ),
-      let sudoersData = FileManager.default.contents(
-        atPath: AppConfiguration.sudoersPath
       )
     else {
       return "helper could not be verified"
@@ -63,16 +60,18 @@ final class ReconnectService {
     guard bundledData == installedData else {
       return "helper update is required"
     }
-    let expectedEntry = expectedSudoersEntry(
-      user: NSUserName(),
-      helperData: installedData
-    )
-    let sudoersEntries = String(
-      decoding: sudoersData,
-      as: UTF8.self
-    ).split(whereSeparator: \.isNewline)
-    guard sudoersEntries.contains(Substring(expectedEntry)) else {
-      return "helper permission is out of date"
+
+    if let issue = helperAuthorizationIssue(runCheck: {
+      try runProcessCapturingCombinedOutput(
+        executableURL: URL(fileURLWithPath: "/usr/bin/sudo"),
+        arguments: [
+          "-n",
+          AppConfiguration.installedHelperPath,
+          "--check",
+        ]
+      )
+    }) {
+      return issue
     }
     return nil
   }
@@ -151,6 +150,19 @@ func expectedSudoersEntry(
 struct ProcessOutput {
   let status: Int32
   let output: String
+}
+
+func helperAuthorizationIssue(
+  runCheck: () throws -> ProcessOutput
+) -> String? {
+  do {
+    guard try runCheck().status == 0 else {
+      return "helper permission is out of date"
+    }
+    return nil
+  } catch {
+    return "helper permission could not be verified"
+  }
 }
 
 func runProcessCapturingCombinedOutput(
