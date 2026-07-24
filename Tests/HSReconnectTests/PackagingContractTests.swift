@@ -218,4 +218,28 @@ final class PackagingContractTests: XCTestCase {
     XCTAssertTrue(recorder.contains("addLocalMonitorForEvents"))
     XCTAssertTrue(recorder.contains("removeMonitor"))
   }
+
+  func testHelperValidationDoesNotReadProtectedSudoersContents() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot =
+      testFile
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let reconnectService = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent(
+          "Sources/HSReconnect/ReconnectService.swift"
+        ),
+      encoding: .utf8
+    )
+
+    XCTAssertFalse(
+      reconnectService.contains(
+        "contents(\n        atPath: AppConfiguration.sudoersPath"
+      )
+    )
+    XCTAssertTrue(reconnectService.contains("\"--check\""))
+  }
 }

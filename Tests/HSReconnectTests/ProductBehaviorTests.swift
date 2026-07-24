@@ -341,6 +341,23 @@ final class ProductBehaviorTests: XCTestCase {
     )
   }
 
+  func testHelperAuthorizationProbeAcceptsSuccessfulSudoCheck() {
+    XCTAssertNil(
+      helperAuthorizationIssue {
+        ProcessOutput(status: 0, output: "")
+      }
+    )
+  }
+
+  func testHelperAuthorizationProbeRejectsFailedSudoCheck() {
+    XCTAssertEqual(
+      helperAuthorizationIssue {
+        ProcessOutput(status: 1, output: "not allowed")
+      },
+      "helper permission is out of date"
+    )
+  }
+
   func testProcessOutputCaptureDoesNotDeadlockOnLargeOutput() throws {
     let result = try runProcessCapturingCombinedOutput(
       executableURL: URL(fileURLWithPath: "/usr/bin/awk"),
