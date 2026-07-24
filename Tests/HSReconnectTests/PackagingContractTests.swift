@@ -64,4 +64,54 @@ final class PackagingContractTests: XCTestCase {
     XCTAssertFalse(verifier.contains("grep -qv \"get-task-allow\""))
     XCTAssertTrue(verifier.contains("grep -q \"get-task-allow\""))
   }
+
+  func testInstallerAndShortcutRecorderRetireLegacyApp() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot =
+      testFile
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let postinstall = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Packaging/scripts/postinstall"),
+      encoding: .utf8
+    )
+    let appDelegate = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Sources/HSReconnect/AppDelegate.swift"),
+      encoding: .utf8
+    )
+    let recorderButton = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Sources/HSReconnect/RecorderButton.swift"),
+      encoding: .utf8
+    )
+
+    XCTAssertTrue(
+      postinstall.contains(
+        "LEGACY_APP=\"$TARGET_VOLUME/Applications/Hearthstone Reconnect.app\""
+      )
+    )
+    XCTAssertTrue(
+      postinstall.contains("/usr/bin/pkill -x HearthstoneReconnect")
+    )
+    XCTAssertTrue(postinstall.contains("/bin/rm -rf \"$LEGACY_APP\""))
+    XCTAssertTrue(
+      postinstall.contains("defaults delete \"$LEGACY_BUNDLE_ID\"")
+    )
+    XCTAssertTrue(
+      appDelegate.contains(
+        "LegacyApplicationMigration.terminateRunningApplications()"
+      )
+    )
+    XCTAssertTrue(
+      recorderButton.contains(
+        "LegacyApplicationMigration.terminateRunningApplications()"
+      )
+    )
+  }
 }

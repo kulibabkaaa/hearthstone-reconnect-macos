@@ -9,6 +9,8 @@ HELPER="$HELPER_DIR/hsreconnect-helper"
 SUDOERS_DIR="$TARGET_VOLUME/etc/sudoers.d"
 SUDOERS="$SUDOERS_DIR/hsreconnect"
 BUNDLE_ID="io.github.kulibabkaaa.HSReconnect"
+LEGACY_APP="$TARGET_VOLUME/Applications/Hearthstone Reconnect.app"
+LEGACY_BUNDLE_ID="com.local.HearthstoneReconnect"
 
 console_user="$(/usr/bin/stat -f '%Su' /dev/console)"
 if [[ ! "$console_user" =~ ^[A-Za-z0-9._-]+$ ]] ||
@@ -45,6 +47,11 @@ trap cleanup EXIT
 /bin/chmod 440 "$sudoers_temp"
 /usr/sbin/visudo -cf "$sudoers_temp" >/dev/null
 /bin/mv -f "$sudoers_temp" "$SUDOERS"
+
+/usr/bin/pkill -x HearthstoneReconnect >/dev/null 2>&1 || true
+/bin/rm -rf "$LEGACY_APP"
+/usr/bin/sudo -H -u "$console_user" \
+    /usr/bin/defaults delete "$LEGACY_BUNDLE_ID" >/dev/null 2>&1 || true
 
 /usr/bin/sudo -H -u "$console_user" \
     /usr/bin/defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true

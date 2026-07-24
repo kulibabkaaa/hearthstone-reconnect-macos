@@ -12,6 +12,7 @@ final class RecorderButton: NSButton {
 
   func beginRecording() {
     guard !isRecordingShortcut else { return }
+    LegacyApplicationMigration.terminateRunningApplications()
     isRecordingShortcut = true
     previousTitle = title
     title = "Press shortcut…"
