@@ -8,7 +8,7 @@ test has passed.
 - Xcode command-line tools
 - Developer ID Application certificate in the login Keychain
 - Developer ID Installer certificate in the login Keychain
-- Apple Developer Team ID `77D9QAT65X`
+- Apple Developer Team ID `D8KUYWS8JN`
 - A `notarytool` Keychain profile
 
 Signing credentials stay in the macOS Keychain. They are not stored in this
@@ -19,7 +19,7 @@ Create the notary profile once:
 ```sh
 xcrun notarytool store-credentials "HSReconnect-Notary" \
   --apple-id "APPLE_ID" \
-  --team-id "77D9QAT65X"
+  --team-id "D8KUYWS8JN"
 ```
 
 Enter the app-specific password when prompted. Do not put it in a script or
@@ -51,8 +51,8 @@ security find-identity -v -p basic
 Build the signed package:
 
 ```sh
-APP_SIGNING_IDENTITY="Developer ID Application: NAME (77D9QAT65X)" \
-INSTALLER_SIGNING_IDENTITY="Developer ID Installer: NAME (77D9QAT65X)" \
+APP_SIGNING_IDENTITY="Developer ID Application: NAME (D8KUYWS8JN)" \
+INSTALLER_SIGNING_IDENTITY="Developer ID Installer: NAME (D8KUYWS8JN)" \
 Scripts/build_package.sh
 ```
 
