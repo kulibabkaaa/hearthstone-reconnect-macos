@@ -5,7 +5,10 @@ enum LegacyApplicationMigration {
     "com.local.HearthstoneReconnect"
   ]
 
-  static func terminateRunningApplications() {
+  @discardableResult
+  static func terminateRunningApplications(
+    timeout: TimeInterval = 1
+  ) -> Bool {
     var legacyApplications: [NSRunningApplication] = []
     for bundleIdentifier in bundleIdentifiers {
       legacyApplications.append(
@@ -16,14 +19,17 @@ enum LegacyApplicationMigration {
     }
 
     for application in legacyApplications {
-      _ = application.forceTerminate()
+      guard application.forceTerminate() || application.isTerminated else {
+        return false
+      }
     }
 
-    let deadline = Date(timeIntervalSinceNow: 0.5)
+    let deadline = Date(timeIntervalSinceNow: timeout)
     while legacyApplications.contains(where: { !$0.isTerminated }),
       Date() < deadline
     {
       RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01))
     }
+    return legacyApplications.allSatisfy(\.isTerminated)
   }
 }

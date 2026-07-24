@@ -65,7 +65,7 @@ final class PackagingContractTests: XCTestCase {
     XCTAssertTrue(verifier.contains("grep -q \"get-task-allow\""))
   }
 
-  func testInstallerAndShortcutRecorderRetireLegacyApp() throws {
+  func testInstallerAndShortcutRecorderRetireLegacyAppSafely() throws {
     let testFile = URL(fileURLWithPath: #filePath)
     let repositoryRoot =
       testFile
@@ -93,12 +93,18 @@ final class PackagingContractTests: XCTestCase {
 
     XCTAssertTrue(
       postinstall.contains(
-        "LEGACY_APP=\"$TARGET_VOLUME/Applications/Hearthstone Reconnect.app\""
+        "LEGACY_APP=\"$TARGET_ROOT/Applications/Hearthstone Reconnect.app\""
       )
     )
-    XCTAssertTrue(
-      postinstall.contains("/usr/bin/pkill -x HearthstoneReconnect")
-    )
+    XCTAssertFalse(postinstall.contains("/usr/bin/pkill"))
+    XCTAssertTrue(postinstall.contains("terminate_exact_executable"))
+    XCTAssertTrue(postinstall.contains("--unregister-login-item"))
+    XCTAssertTrue(postinstall.contains("/usr/bin/shasum -a 256"))
+    XCTAssertTrue(postinstall.contains("NOPASSWD: sha256:%s %s"))
+    XCTAssertTrue(postinstall.contains("-L \"$SOURCE_HELPER\""))
+    XCTAssertTrue(postinstall.contains("ensure_privileged_directory"))
+    XCTAssertTrue(postinstall.contains("mode & 0022"))
+    XCTAssertFalse(postinstall.contains("/bin/chmod 755 \"$SUDOERS_DIR\""))
     XCTAssertTrue(postinstall.contains("/bin/rm -rf \"$LEGACY_APP\""))
     XCTAssertTrue(
       postinstall.contains("defaults delete \"$LEGACY_BUNDLE_ID\"")
@@ -113,5 +119,103 @@ final class PackagingContractTests: XCTestCase {
         "LegacyApplicationMigration.terminateRunningApplications()"
       )
     )
+  }
+
+  func testUninstallerRemovesLegacyFilesWithoutBroadProcessKills() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot =
+      testFile
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let uninstaller = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Scripts/uninstall.sh"),
+      encoding: .utf8
+    )
+
+    XCTAssertFalse(uninstaller.contains("/usr/bin/pkill"))
+    XCTAssertTrue(uninstaller.contains("terminate_exact_executable"))
+    XCTAssertTrue(
+      uninstaller.contains(
+        "LEGACY_APP=\"/Applications/Hearthstone Reconnect.app\""
+      )
+    )
+    XCTAssertTrue(uninstaller.contains("LEGACY_BUNDLE_ID="))
+    XCTAssertTrue(
+      uninstaller.components(
+        separatedBy: "--unregister-login-item"
+      ).count >= 3
+    )
+  }
+
+  func testReleaseVerifierNeverOverwritesDistPackage() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot =
+      testFile
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let verifier = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Scripts/verify_release.sh"),
+      encoding: .utf8
+    )
+    let packageBuilder = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Scripts/build_package.sh"),
+      encoding: .utf8
+    )
+
+    XCTAssertTrue(packageBuilder.contains("PACKAGE_OUTPUT_DIR"))
+    XCTAssertTrue(
+      verifier.contains(
+        "PACKAGE_OUTPUT_DIR=\"$VERIFY_ROOT\""
+      )
+    )
+    XCTAssertTrue(verifier.contains("pkgutil --expand-full"))
+    XCTAssertTrue(verifier.contains("PACKAGED_APP"))
+    XCTAssertTrue(verifier.contains("\"$ROOT\"/Scripts/*.sh"))
+  }
+
+  func testNotarizationCanResumeWithoutPollingApple() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot =
+      testFile
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let notarizer = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Scripts/notarize.sh"),
+      encoding: .utf8
+    )
+
+    XCTAssertFalse(notarizer.contains("--wait"))
+    XCTAssertTrue(notarizer.contains("submit)"))
+    XCTAssertTrue(notarizer.contains("finish)"))
+    XCTAssertTrue(notarizer.contains("notarytool info"))
+  }
+
+  func testShortcutRecorderInterceptsMenuShortcutsBeforeDispatch() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot =
+      testFile
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let recorder = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Sources/HSReconnect/RecorderButton.swift"),
+      encoding: .utf8
+    )
+
+    XCTAssertTrue(recorder.contains("addLocalMonitorForEvents"))
+    XCTAssertTrue(recorder.contains("removeMonitor"))
   }
 }

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
 PID=""
@@ -86,7 +86,7 @@ validate_native_identity() {
     printf 'Invalid native Hearthstone PID: %s\n' "${PID:-missing}" >&2
     exit 2
   fi
-  if [[ -z "$EXECUTABLE" || ! -x "$EXECUTABLE" ]]; then
+  if [[ -z "$EXECUTABLE" || -L "$EXECUTABLE" || ! -x "$EXECUTABLE" ]]; then
     printf 'Native Hearthstone executable is missing or not executable: %s\n' "${EXECUTABLE:-missing}" >&2
     exit 2
   fi
@@ -112,6 +112,10 @@ validate_native_identity() {
     exit 2
   fi
 
+  if ! /usr/bin/codesign --verify --strict "$canonical_executable" >/dev/null 2>&1; then
+    printf 'Native Hearthstone signature is invalid.\n' >&2
+    exit 2
+  fi
   signature="$(/usr/bin/codesign -dv --verbose=4 "$canonical_executable" 2>&1 || true)"
   identifier="$(printf '%s\n' "$signature" | /usr/bin/awk -F= '$1 == "Identifier" { print $2; exit }')"
   team="$(printf '%s\n' "$signature" | /usr/bin/awk -F= '$1 == "TeamIdentifier" { print $2; exit }')"
