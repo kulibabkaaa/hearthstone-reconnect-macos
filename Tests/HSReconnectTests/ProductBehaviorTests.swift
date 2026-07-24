@@ -30,6 +30,13 @@ final class ProductBehaviorTests: XCTestCase {
     XCTAssertTrue(AppConfiguration.openWithHearthstoneByDefault)
   }
 
+  func testLegacyReconnectAppIsRetired() {
+    XCTAssertEqual(
+      LegacyApplicationMigration.bundleIdentifiers,
+      ["com.local.HearthstoneReconnect"]
+    )
+  }
+
   func testFriendlyMessageForMissingHearthstone() {
     let message = friendlyReconnectFailure(
       for: "Native Hearthstone is not running."

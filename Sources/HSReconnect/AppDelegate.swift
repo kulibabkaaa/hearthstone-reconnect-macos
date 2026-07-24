@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    LegacyApplicationMigration.terminateRunningApplications()
     NSApp.setActivationPolicy(.regular)
     registerDefaults()
     AppLog.prepare()
