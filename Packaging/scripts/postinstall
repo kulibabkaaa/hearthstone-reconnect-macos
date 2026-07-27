@@ -87,6 +87,30 @@ user_home_for() {
     printf '%s\n' "$user_home"
 }
 
+desktop_shortcut_target() {
+    local desktop_shortcut="$1"
+
+    if [[ -L "$desktop_shortcut" ]]; then
+        /usr/bin/readlink "$desktop_shortcut"
+        return
+    fi
+    [[ -f "$desktop_shortcut" ]] || return 1
+
+    /usr/bin/osascript -l JavaScript - "$desktop_shortcut" <<'JXA'
+ObjC.import("Foundation");
+function run(argv) {
+  if (argv.length !== 1) return "";
+  var url = $.NSURL.fileURLWithPath(argv[0]);
+  var resolved = $.NSURL.URLByResolvingAliasFileAtURLOptionsError(
+    url,
+    0,
+    null
+  );
+  return resolved ? ObjC.unwrap(resolved.path) : "";
+}
+JXA
+}
+
 install_desktop_shortcut() {
     local user="$1"
     local user_home desktop_dir desktop_shortcut existing_target
@@ -97,9 +121,9 @@ install_desktop_shortcut() {
     [[ -d "$desktop_dir" ]] || return 0
     desktop_shortcut="$desktop_dir/$DESKTOP_SHORTCUT_NAME"
 
-    if [[ -L "$desktop_shortcut" ]]; then
+    if [[ -L "$desktop_shortcut" || -f "$desktop_shortcut" ]]; then
         existing_target="$(
-            /usr/bin/readlink "$desktop_shortcut" 2>/dev/null || true
+            desktop_shortcut_target "$desktop_shortcut" 2>/dev/null || true
         )"
         [[ "$existing_target" == "$APP" ]] || return 0
         /bin/rm -f "$desktop_shortcut"
