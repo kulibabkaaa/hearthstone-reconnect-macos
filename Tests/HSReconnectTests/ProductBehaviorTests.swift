@@ -361,6 +361,23 @@ final class ProductBehaviorTests: XCTestCase {
     XCTAssertEqual(dockActivationPolicy(showInDock: false), .accessory)
   }
 
+  func testRapidDockVisibilityRequestsOnlyApplyTheFinalChoice() {
+    var scheduledChanges: [() -> Void] = []
+    let coordinator = DockVisibilityChangeCoordinator(
+      schedule: { change in
+        scheduledChanges.append(change)
+      }
+    )
+    var appliedChoices: [Bool] = []
+
+    for enabled in [false, true, false, true, false, true] {
+      coordinator.submit(enabled) { appliedChoices.append($0) }
+    }
+    scheduledChanges.forEach { $0() }
+
+    XCTAssertEqual(appliedChoices, [true])
+  }
+
   func testDockPreferenceChangesOnlyAfterPolicyChangeSucceeds() {
     let suiteName = "ProductBehaviorTests.dockVisibility"
     let defaults = UserDefaults(suiteName: suiteName)!
@@ -380,7 +397,7 @@ final class ProductBehaviorTests: XCTestCase {
     XCTAssertFalse(defaults.bool(forKey: DefaultsKey.showInDock))
   }
 
-  func testAlreadyAppliedDockPolicyIsAcceptedWhenSetterReturnsFalse() {
+  func testAlreadyAppliedDockPolicySkipsTheSetter() {
     let suiteName = "ProductBehaviorTests.dockVisibilityAlreadyApplied"
     let defaults = UserDefaults(suiteName: suiteName)!
     defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -396,7 +413,7 @@ final class ProductBehaviorTests: XCTestCase {
     )
 
     XCTAssertTrue(controller.setEnabled(true))
-    XCTAssertEqual(requestedPolicy, .regular)
+    XCTAssertNil(requestedPolicy)
     XCTAssertTrue(defaults.bool(forKey: DefaultsKey.showInDock))
   }
 

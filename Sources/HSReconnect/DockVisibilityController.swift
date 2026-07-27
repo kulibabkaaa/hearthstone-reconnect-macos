@@ -9,6 +9,37 @@ func dockActivationPolicy(
   showInDock ? .regular : .accessory
 }
 
+final class DockVisibilityChangeCoordinator {
+  typealias Schedule = (@escaping () -> Void) -> Void
+
+  private let schedule: Schedule
+  private var latestRequestID: UInt64 = 0
+
+  init(
+    schedule: @escaping Schedule = { change in
+      DispatchQueue.main.asyncAfter(
+        deadline: .now() + 0.3,
+        execute: change
+      )
+    }
+  ) {
+    self.schedule = schedule
+  }
+
+  func submit(
+    _ enabled: Bool,
+    apply: @escaping (Bool) -> Void
+  ) {
+    latestRequestID &+= 1
+    let requestID = latestRequestID
+
+    schedule { [weak self] in
+      guard self?.latestRequestID == requestID else { return }
+      apply(enabled)
+    }
+  }
+}
+
 final class DockVisibilityController {
   private let defaults: UserDefaults
   private let setActivationPolicy:
@@ -56,7 +87,11 @@ final class DockVisibilityController {
   private func apply(
     _ requestedPolicy: NSApplication.ActivationPolicy
   ) -> Bool {
-    setActivationPolicy(requestedPolicy)
+    guard activationPolicy() != requestedPolicy else {
+      return true
+    }
+
+    return setActivationPolicy(requestedPolicy)
       || activationPolicy() == requestedPolicy
   }
 }

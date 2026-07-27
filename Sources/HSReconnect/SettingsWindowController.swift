@@ -5,7 +5,8 @@ final class SettingsWindowController: NSWindowController {
   private let onShortcutChanged: (UInt32, UInt32, String) -> Bool
   private let onShortcutRecordingChanged: (Bool) -> Void
   private let onOpenWithHearthstoneChanged: (Bool) -> Result<Void, Error>
-  private let onShowInDockChanged: (Bool) -> Bool
+  private let onShowInDockChanged:
+    (Bool, @escaping (Bool) -> Void) -> Void
 
   private let statusLabel = NSTextField(labelWithString: "Ready")
   private let shortcutButton = RecorderButton(
@@ -34,7 +35,8 @@ final class SettingsWindowController: NSWindowController {
     onShortcutChanged: @escaping (UInt32, UInt32, String) -> Bool,
     onShortcutRecordingChanged: @escaping (Bool) -> Void,
     onOpenWithHearthstoneChanged: @escaping (Bool) -> Result<Void, Error>,
-    onShowInDockChanged: @escaping (Bool) -> Bool
+    onShowInDockChanged: @escaping
+      (Bool, @escaping (Bool) -> Void) -> Void
   ) {
     self.onReconnect = onReconnect
     self.onShortcutChanged = onShortcutChanged
@@ -232,18 +234,21 @@ final class SettingsWindowController: NSWindowController {
 
   @objc private func showInDockChanged() {
     let enabled = showInDockCheckbox.state == .on
-    if onShowInDockChanged(enabled) {
-      setStatus(
-        enabled
-          ? "HS Reconnect is shown in the Dock."
-          : "HS Reconnect is hidden from the Dock. Use the menu bar icon to open it."
-      )
-    } else {
-      setStatus(
-        "Dock visibility couldn't be changed. Please try again.",
-        isError: true
-      )
-      refresh()
+    onShowInDockChanged(enabled) { [weak self] succeeded in
+      guard let self else { return }
+      if succeeded {
+        self.setStatus(
+          enabled
+            ? "HS Reconnect is shown in the Dock."
+            : "HS Reconnect is hidden from the Dock. Use the menu bar icon to open it."
+        )
+      } else {
+        self.setStatus(
+          "Dock visibility couldn't be changed. Please try again.",
+          isError: true
+        )
+        self.refresh()
+      }
     }
   }
 }
