@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let reconnectService = ReconnectService()
   private let hotKeyManager = GlobalHotKeyManager()
   private let autoLaunchController = AutoLaunchController()
+  private let dockVisibilityController = DockVisibilityController()
 
   private var statusItem: NSStatusItem!
   private var reconnectMenuItem: NSMenuItem!
@@ -20,10 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     let legacyAppRetired =
       LegacyApplicationMigration.terminateRunningApplications()
-    NSApp.setActivationPolicy(.regular)
     registerDefaults()
+    let dockPreferenceApplied =
+      dockVisibilityController.applyStoredPreference()
     autoLaunchController.synchronizeStoredState()
     AppLog.prepare()
+    if !dockPreferenceApplied {
+      AppLog.write("Dock visibility preference could not be applied")
+    }
     AppLog.write(
       launchedForHearthstone
         ? "App launched with Hearthstone"
@@ -46,6 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       onOpenWithHearthstoneChanged: { [weak self] enabled in
         self?.autoLaunchController.setEnabled(enabled)
           ?? .failure(AutoLaunchError.unavailable)
+      },
+      onShowInDockChanged: { [weak self] enabled in
+        self?.setShowInDock(enabled) ?? false
       }
     )
 
@@ -108,8 +116,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppConfiguration.defaultShortcutDisplay,
       DefaultsKey.openWithHearthstone:
         AppConfiguration.openWithHearthstoneByDefault,
+      DefaultsKey.showInDock:
+        AppConfiguration.showInDockByDefault,
       DefaultsKey.lastReconnectAt: 0.0,
     ])
+  }
+
+  private func setShowInDock(_ enabled: Bool) -> Bool {
+    guard dockVisibilityController.setEnabled(enabled) else {
+      AppLog.write("Dock visibility change failed")
+      return false
+    }
+
+    AppLog.write(
+      enabled ? "Dock icon enabled" : "Dock icon disabled"
+    )
+    if enabled, settingsWindowController.window?.isVisible == true {
+      NSApp.activate(ignoringOtherApps: true)
+    }
+    return true
   }
 
   private func buildMainMenu() {

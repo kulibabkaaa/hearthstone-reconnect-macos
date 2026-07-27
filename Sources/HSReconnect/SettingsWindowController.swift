@@ -4,6 +4,7 @@ final class SettingsWindowController: NSWindowController {
   private let onReconnect: () -> Void
   private let onShortcutChanged: (UInt32, UInt32, String) -> Bool
   private let onOpenWithHearthstoneChanged: (Bool) -> Result<Void, Error>
+  private let onShowInDockChanged: (Bool) -> Bool
 
   private let statusLabel = NSTextField(labelWithString: "Ready")
   private let shortcutButton = RecorderButton(
@@ -16,6 +17,11 @@ final class SettingsWindowController: NSWindowController {
     target: nil,
     action: nil
   )
+  private let showInDockCheckbox = NSButton(
+    checkboxWithTitle: "Show HS Reconnect in Dock",
+    target: nil,
+    action: nil
+  )
   private let reconnectButton = NSButton(
     title: "Reconnect Now",
     target: nil,
@@ -25,14 +31,16 @@ final class SettingsWindowController: NSWindowController {
   init(
     onReconnect: @escaping () -> Void,
     onShortcutChanged: @escaping (UInt32, UInt32, String) -> Bool,
-    onOpenWithHearthstoneChanged: @escaping (Bool) -> Result<Void, Error>
+    onOpenWithHearthstoneChanged: @escaping (Bool) -> Result<Void, Error>,
+    onShowInDockChanged: @escaping (Bool) -> Bool
   ) {
     self.onReconnect = onReconnect
     self.onShortcutChanged = onShortcutChanged
     self.onOpenWithHearthstoneChanged = onOpenWithHearthstoneChanged
+    self.onShowInDockChanged = onShowInDockChanged
 
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 470, height: 300),
+      contentRect: NSRect(x: 0, y: 0, width: 470, height: 340),
       styleMask: [.titled, .closable, .miniaturizable],
       backing: .buffered,
       defer: false
@@ -58,6 +66,10 @@ final class SettingsWindowController: NSWindowController {
     openWithHearthstoneCheckbox.state =
       UserDefaults.standard.bool(
         forKey: DefaultsKey.openWithHearthstone
+      ) ? .on : .off
+    showInDockCheckbox.state =
+      UserDefaults.standard.bool(
+        forKey: DefaultsKey.showInDock
       ) ? .on : .off
   }
 
@@ -133,6 +145,9 @@ final class SettingsWindowController: NSWindowController {
     openWithHearthstoneCheckbox.action =
       #selector(openWithHearthstoneChanged)
 
+    showInDockCheckbox.target = self
+    showInDockCheckbox.action = #selector(showInDockChanged)
+
     reconnectButton.target = self
     reconnectButton.action = #selector(reconnectNow)
     reconnectButton.bezelStyle = .rounded
@@ -154,6 +169,7 @@ final class SettingsWindowController: NSWindowController {
         description,
         shortcutRow,
         openWithHearthstoneCheckbox,
+        showInDockCheckbox,
         reconnectButton,
         statusLabel,
       ]
@@ -202,6 +218,23 @@ final class SettingsWindowController: NSWindowController {
     case .failure:
       setStatus(
         "Automatic opening couldn't be changed. Please try again.",
+        isError: true
+      )
+      refresh()
+    }
+  }
+
+  @objc private func showInDockChanged() {
+    let enabled = showInDockCheckbox.state == .on
+    if onShowInDockChanged(enabled) {
+      setStatus(
+        enabled
+          ? "HS Reconnect is shown in the Dock."
+          : "HS Reconnect is hidden from the Dock. Use the menu bar icon to open it."
+      )
+    } else {
+      setStatus(
+        "Dock visibility couldn't be changed. Please try again.",
         isError: true
       )
       refresh()

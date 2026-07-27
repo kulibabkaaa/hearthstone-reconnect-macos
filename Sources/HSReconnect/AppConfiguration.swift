@@ -17,6 +17,7 @@ enum AppConfiguration {
   static let defaultShortcutKeyCode: UInt32 = UInt32(kVK_ANSI_W)
   static let defaultShortcutDisplay = "Cmd+Shift+W"
   static let openWithHearthstoneByDefault = true
+  static let showInDockByDefault = true
   static let logRetentionDays = 7
 }
 
@@ -25,6 +26,7 @@ enum DefaultsKey {
   static let modifiers = "hotkey.modifiers"
   static let hotkeyDisplay = "hotkey.display"
   static let openWithHearthstone = "openWithHearthstone"
+  static let showInDock = "appearance.showInDock"
   static let didConfigureDefaultLoginItem = "loginItem.didConfigureDefault"
   static let lastReconnectAt = "reconnect.lastAt"
 }

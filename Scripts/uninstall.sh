@@ -11,6 +11,7 @@ BUNDLE_ID="io.github.kulibabkaaa.HSReconnect"
 LEGACY_APP="/Applications/Hearthstone Reconnect.app"
 LEGACY_BINARY="$LEGACY_APP/Contents/MacOS/HearthstoneReconnect"
 LEGACY_BUNDLE_ID="com.local.HearthstoneReconnect"
+DESKTOP_SHORTCUT_NAME="HS Reconnect.app"
 
 console_user() {
     /usr/bin/stat -f '%Su' /dev/console
@@ -22,6 +23,38 @@ validate_user() {
         [[ "$user" != "root" ]] &&
         [[ "$user" != "loginwindow" ]] &&
         [[ "$user" != "_mbsetupuser" ]]
+}
+
+user_home_for() {
+    local user="$1"
+    local record user_home
+
+    record="$(
+        /usr/bin/dscl . -read "/Users/$user" NFSHomeDirectory 2>/dev/null ||
+            true
+    )"
+    user_home="${record#*: }"
+    if [[ -z "$record" || "$user_home" != /* ||
+        "$user_home" == "/" || "$user_home" == *$'\n'* ]]; then
+        return 1
+    fi
+    printf '%s\n' "$user_home"
+}
+
+remove_desktop_shortcut() {
+    local user="$1"
+    local user_home desktop_shortcut existing_target
+
+    user_home="$(user_home_for "$user" || true)"
+    [[ -n "$user_home" ]] || return 0
+    desktop_shortcut="$user_home/Desktop/$DESKTOP_SHORTCUT_NAME"
+    [[ -L "$desktop_shortcut" ]] || return 0
+    existing_target="$(
+        /usr/bin/readlink "$desktop_shortcut" 2>/dev/null || true
+    )"
+    if [[ "$existing_target" == "$APP" ]]; then
+        /bin/rm -f "$desktop_shortcut"
+    fi
 }
 
 terminate_exact_executable() {
@@ -91,6 +124,7 @@ terminate_exact_executable "$WATCHER_BINARY" "HSReconnectWatcher"
 terminate_exact_executable "$APP_BINARY" "HSReconnect"
 terminate_exact_executable "$LEGACY_BINARY" "HearthstoneReconnect"
 
+remove_desktop_shortcut "$user"
 /bin/rm -f "$HELPER"
 /bin/rm -f "$SUDOERS"
 /bin/rm -rf "$APP"

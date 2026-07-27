@@ -22,14 +22,18 @@ Command-Shift-W, and it can be changed in the app.
 4. Leave **Open HS Reconnect with Hearthstone** checked if you want the app to
    start quietly when Hearthstone opens.
 
-The app keeps both a menu bar icon and a Dock icon. Its menu contains
-**Reconnect**, **Open Window**, and **Quit**.
+The installer also creates an HS Reconnect shortcut on the current user's
+Desktop. The app shows both a menu bar icon and a Dock icon by default. Turn
+off **Show HS Reconnect in Dock** if you want to use only the menu bar icon.
+The menu contains **Reconnect**, **Open Window**, and **Quit**.
 
 ## What the installer adds
 
 The installer places the app in `/Applications` for all users. It also installs
 a root-owned helper at `/usr/local/libexec/hsreconnect-helper` and a narrowly
 scoped sudo rule at `/etc/sudoers.d/hsreconnect` for the signed-in console user.
+It adds a Desktop shortcut for that user without replacing an existing Desktop
+item with the same name.
 
 The helper verifies the running native Hearthstone process and its current game
 connection before applying a short, targeted network reset. HS Reconnect refuses
@@ -49,8 +53,9 @@ Open Terminal and run:
 "/Applications/HS Reconnect.app/Contents/Resources/uninstall.sh"
 ```
 
-The uninstaller asks for administrator approval, then removes the app, helper,
-sudo rule, local logs, preferences, and package receipt.
+The uninstaller asks for administrator approval, then removes the app, its
+Desktop shortcut, helper, sudo rule, local logs, preferences, and package
+receipt.
 
 ## Build from source
 
