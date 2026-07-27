@@ -14,6 +14,10 @@ func friendlyReconnectFailure(for technicalMessage: String) -> String {
     return "Start a Battlegrounds game and try again."
   }
 
+  if message.contains("hearthstone signature") {
+    return "Hearthstone couldn't be verified. Repair or reinstall Hearthstone, then try again."
+  }
+
   if message.contains("sudo") || message.contains("helper") || message.contains("permission denied")
     || message.contains("not permitted")
   {

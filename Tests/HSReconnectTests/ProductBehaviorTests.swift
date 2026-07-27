@@ -211,6 +211,16 @@ final class ProductBehaviorTests: XCTestCase {
     )
   }
 
+  func testFriendlyMessageForInvalidHearthstoneSignature() {
+    let message = friendlyReconnectFailure(
+      for: "Native Hearthstone signature is invalid."
+    )
+    XCTAssertEqual(
+      message,
+      "Hearthstone couldn't be verified. Repair or reinstall Hearthstone, then try again."
+    )
+  }
+
   func testFriendlyMessageDoesNotExposeUnknownTechnicalDetails() {
     let message = friendlyReconnectFailure(
       for: "pfctl returned status 17 for anchor com.apple/000.hsreconnect"

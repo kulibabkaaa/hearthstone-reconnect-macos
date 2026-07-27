@@ -10,6 +10,7 @@ DRY_RUN=0
 RST_MODE=0
 CHECK_ONLY=0
 HELPER_VERSION="1.0.0"
+HEARTHSTONE_REQUIREMENT='=anchor apple generic and identifier "unity.Blizzard Entertainment.Hearthstone" and certificate leaf[subject.OU] = "G847MC6JZ5"'
 ORIGINAL_ARGS=("$@")
 
 usage() {
@@ -112,7 +113,10 @@ validate_native_identity() {
     exit 2
   fi
 
-  if ! /usr/bin/codesign --verify --strict "$canonical_executable" >/dev/null 2>&1; then
+  if ! /usr/bin/codesign --verify --strict --ignore-resources \
+    --test-requirement="$HEARTHSTONE_REQUIREMENT" \
+    "$canonical_executable" >/dev/null 2>&1
+  then
     printf 'Native Hearthstone signature is invalid.\n' >&2
     exit 2
   fi

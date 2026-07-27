@@ -21,9 +21,17 @@ final class HelperContractTests: XCTestCase {
     XCTAssertFalse(helper.contains("--idle-seconds)"))
     XCTAssertTrue(helper.hasPrefix("#!/bin/bash\n"))
     XCTAssertTrue(helper.contains("-L \"$EXECUTABLE\""))
+    XCTAssertTrue(helper.contains("--ignore-resources"))
     XCTAssertTrue(
       helper.contains(
-        "/usr/bin/codesign --verify --strict \"$canonical_executable\""
+        "--test-requirement=\"$HEARTHSTONE_REQUIREMENT\""
+      )
+    )
+    XCTAssertTrue(
+      helper.contains(
+        "anchor apple generic and identifier "
+          + "\"unity.Blizzard Entertainment.Hearthstone\" "
+          + "and certificate leaf[subject.OU] = \"G847MC6JZ5\""
       )
     )
   }
