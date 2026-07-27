@@ -178,6 +178,12 @@ final class PackagingContractTests: XCTestCase {
       XCTAssertTrue(
         script.contains("/usr/bin/readlink \"$desktop_shortcut\"")
       )
+      XCTAssertTrue(
+        script.contains(
+          "$.NSURL.URLByResolvingAliasFileAtURLOptionsError"
+        )
+      )
+      XCTAssertTrue(script.contains("desktop_shortcut_target"))
       XCTAssertFalse(script.contains("/bin/rm -rf \"$desktop_shortcut\""))
     }
     XCTAssertTrue(
