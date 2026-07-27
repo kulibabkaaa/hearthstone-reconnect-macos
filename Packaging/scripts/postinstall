@@ -102,7 +102,7 @@ install_desktop_shortcut() {
     fi
 
     if ! /usr/bin/sudo -H -u "$user" \
-        /bin/ln -s "$APP" "$desktop_shortcut"; then
+        "$APP_BINARY" --create-desktop-shortcut "$desktop_shortcut"; then
         echo "HS Reconnect could not create its Desktop shortcut." >&2
     fi
 }

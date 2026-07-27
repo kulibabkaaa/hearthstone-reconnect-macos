@@ -122,6 +122,84 @@ final class ProductBehaviorTests: XCTestCase {
     XCTAssertTrue(AppConfiguration.showInDockByDefault)
   }
 
+  func testDesktopShortcutIsAFinderAliasToTheInstalledApp() throws {
+    let fileManager = FileManager.default
+    let root = fileManager.temporaryDirectory.appendingPathComponent(
+      UUID().uuidString,
+      isDirectory: true
+    )
+    defer { try? fileManager.removeItem(at: root) }
+    let applicationURL = root.appendingPathComponent(
+      "HS Reconnect.app",
+      isDirectory: true
+    )
+    let shortcutURL = root.appendingPathComponent(
+      "Desktop/HS Reconnect.app"
+    )
+    try fileManager.createDirectory(
+      at: applicationURL,
+      withIntermediateDirectories: true
+    )
+    try fileManager.createDirectory(
+      at: shortcutURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+
+    XCTAssertTrue(
+      try DesktopShortcutInstaller.createAliasIfNeeded(
+        applicationURL: applicationURL,
+        shortcutURL: shortcutURL
+      )
+    )
+    XCTAssertThrowsError(
+      try fileManager.destinationOfSymbolicLink(
+        atPath: shortcutURL.path
+      )
+    )
+    let resolvedURL = try URL(
+      resolvingAliasFileAt: shortcutURL,
+      options: []
+    )
+    XCTAssertEqual(
+      resolvedURL.standardizedFileURL,
+      applicationURL.standardizedFileURL
+    )
+  }
+
+  func testDesktopShortcutDoesNotReplaceAnExistingItem() throws {
+    let fileManager = FileManager.default
+    let root = fileManager.temporaryDirectory.appendingPathComponent(
+      UUID().uuidString,
+      isDirectory: true
+    )
+    defer { try? fileManager.removeItem(at: root) }
+    let applicationURL = root.appendingPathComponent(
+      "HS Reconnect.app",
+      isDirectory: true
+    )
+    let shortcutURL = root.appendingPathComponent(
+      "Desktop/HS Reconnect.app"
+    )
+    try fileManager.createDirectory(
+      at: applicationURL,
+      withIntermediateDirectories: true
+    )
+    try fileManager.createDirectory(
+      at: shortcutURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    let existingContents = Data("keep me".utf8)
+    try existingContents.write(to: shortcutURL)
+
+    XCTAssertFalse(
+      try DesktopShortcutInstaller.createAliasIfNeeded(
+        applicationURL: applicationURL,
+        shortcutURL: shortcutURL
+      )
+    )
+    XCTAssertEqual(try Data(contentsOf: shortcutURL), existingContents)
+  }
+
   func testDockVisibilityUsesTheMatchingActivationPolicy() {
     XCTAssertEqual(dockActivationPolicy(showInDock: true), .regular)
     XCTAssertEqual(dockActivationPolicy(showInDock: false), .accessory)
