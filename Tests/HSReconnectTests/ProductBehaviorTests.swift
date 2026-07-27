@@ -380,6 +380,26 @@ final class ProductBehaviorTests: XCTestCase {
     XCTAssertFalse(defaults.bool(forKey: DefaultsKey.showInDock))
   }
 
+  func testAlreadyAppliedDockPolicyIsAcceptedWhenSetterReturnsFalse() {
+    let suiteName = "ProductBehaviorTests.dockVisibilityAlreadyApplied"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    defaults.set(false, forKey: DefaultsKey.showInDock)
+    var requestedPolicy: NSApplication.ActivationPolicy?
+    let controller = DockVisibilityController(
+      defaults: defaults,
+      setActivationPolicy: { policy in
+        requestedPolicy = policy
+        return false
+      },
+      activationPolicy: { .regular }
+    )
+
+    XCTAssertTrue(controller.setEnabled(true))
+    XCTAssertEqual(requestedPolicy, .regular)
+    XCTAssertTrue(defaults.bool(forKey: DefaultsKey.showInDock))
+  }
+
   func testFailedDockPolicyChangeKeepsThePreviousPreference() {
     let suiteName = "ProductBehaviorTests.dockVisibilityFailure"
     let defaults = UserDefaults(suiteName: suiteName)!
@@ -387,7 +407,8 @@ final class ProductBehaviorTests: XCTestCase {
     defaults.set(true, forKey: DefaultsKey.showInDock)
     let controller = DockVisibilityController(
       defaults: defaults,
-      setActivationPolicy: { _ in false }
+      setActivationPolicy: { _ in false },
+      activationPolicy: { .regular }
     )
 
     XCTAssertFalse(controller.setEnabled(false))

@@ -13,21 +13,28 @@ final class DockVisibilityController {
   private let defaults: UserDefaults
   private let setActivationPolicy:
     (NSApplication.ActivationPolicy) -> Bool
+  private let activationPolicy:
+    () -> NSApplication.ActivationPolicy
 
   init(
     defaults: UserDefaults = .standard,
     setActivationPolicy: @escaping
       (NSApplication.ActivationPolicy) -> Bool = {
         NSApplication.shared.setActivationPolicy($0)
+      },
+    activationPolicy: @escaping
+      () -> NSApplication.ActivationPolicy = {
+        NSApplication.shared.activationPolicy()
       }
   ) {
     self.defaults = defaults
     self.setActivationPolicy = setActivationPolicy
+    self.activationPolicy = activationPolicy
   }
 
   @discardableResult
   func applyStoredPreference() -> Bool {
-    setActivationPolicy(
+    apply(
       dockActivationPolicy(
         showInDock: defaults.bool(forKey: DefaultsKey.showInDock)
       )
@@ -36,7 +43,7 @@ final class DockVisibilityController {
 
   @discardableResult
   func setEnabled(_ enabled: Bool) -> Bool {
-    guard setActivationPolicy(
+    guard apply(
       dockActivationPolicy(showInDock: enabled)
     ) else {
       return false
@@ -44,5 +51,12 @@ final class DockVisibilityController {
 
     defaults.set(enabled, forKey: DefaultsKey.showInDock)
     return true
+  }
+
+  private func apply(
+    _ requestedPolicy: NSApplication.ActivationPolicy
+  ) -> Bool {
+    setActivationPolicy(requestedPolicy)
+      || activationPolicy() == requestedPolicy
   }
 }
