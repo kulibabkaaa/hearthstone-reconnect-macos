@@ -1,4 +1,9 @@
+import AppKit
 import Foundation
+
+enum DesktopShortcutError: Error {
+  case customIconCouldNotBeSet
+}
 
 enum DesktopShortcutInstaller {
   @discardableResult
@@ -12,6 +17,18 @@ enum DesktopShortcutInstaller {
         atPath: shortcutURL.path
       )) != nil
     {
+      if let resolvedURL = try? URL(
+        resolvingAliasFileAt: shortcutURL,
+        options: [.withoutUI]
+      ),
+        resolvedURL.resolvingSymlinksInPath().standardizedFileURL
+          == applicationURL.resolvingSymlinksInPath().standardizedFileURL
+      {
+        try setCustomIcon(
+          applicationURL: applicationURL,
+          shortcutURL: shortcutURL
+        )
+      }
       return false
     }
 
@@ -21,6 +38,29 @@ enum DesktopShortcutInstaller {
       relativeTo: nil
     )
     try URL.writeBookmarkData(bookmarkData, to: shortcutURL)
+    do {
+      try setCustomIcon(
+        applicationURL: applicationURL,
+        shortcutURL: shortcutURL
+      )
+    } catch {
+      try? fileManager.removeItem(at: shortcutURL)
+      throw error
+    }
     return true
+  }
+
+  private static func setCustomIcon(
+    applicationURL: URL,
+    shortcutURL: URL
+  ) throws {
+    let icon = NSWorkspace.shared.icon(forFile: applicationURL.path)
+    guard NSWorkspace.shared.setIcon(
+      icon,
+      forFile: shortcutURL.path,
+      options: []
+    ) else {
+      throw DesktopShortcutError.customIconCouldNotBeSet
+    }
   }
 }
