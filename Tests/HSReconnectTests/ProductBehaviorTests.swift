@@ -118,6 +118,48 @@ final class ProductBehaviorTests: XCTestCase {
     XCTAssertTrue(AppConfiguration.openWithHearthstoneByDefault)
   }
 
+  func testDockIconIsVisibleByDefault() {
+    XCTAssertTrue(AppConfiguration.showInDockByDefault)
+  }
+
+  func testDockVisibilityUsesTheMatchingActivationPolicy() {
+    XCTAssertEqual(dockActivationPolicy(showInDock: true), .regular)
+    XCTAssertEqual(dockActivationPolicy(showInDock: false), .accessory)
+  }
+
+  func testDockPreferenceChangesOnlyAfterPolicyChangeSucceeds() {
+    let suiteName = "ProductBehaviorTests.dockVisibility"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    defaults.set(true, forKey: DefaultsKey.showInDock)
+    var appliedPolicy: NSApplication.ActivationPolicy?
+    let controller = DockVisibilityController(
+      defaults: defaults,
+      setActivationPolicy: { policy in
+        appliedPolicy = policy
+        return true
+      }
+    )
+
+    XCTAssertTrue(controller.setEnabled(false))
+    XCTAssertEqual(appliedPolicy, .accessory)
+    XCTAssertFalse(defaults.bool(forKey: DefaultsKey.showInDock))
+  }
+
+  func testFailedDockPolicyChangeKeepsThePreviousPreference() {
+    let suiteName = "ProductBehaviorTests.dockVisibilityFailure"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    defaults.set(true, forKey: DefaultsKey.showInDock)
+    let controller = DockVisibilityController(
+      defaults: defaults,
+      setActivationPolicy: { _ in false }
+    )
+
+    XCTAssertFalse(controller.setEnabled(false))
+    XCTAssertTrue(defaults.bool(forKey: DefaultsKey.showInDock))
+  }
+
   func testAutoLaunchPreferenceStaysOffWhenApprovalIsRequired() {
     let suiteName = "ProductBehaviorTests.autoLaunchApproval"
     let defaults = UserDefaults(suiteName: suiteName)!

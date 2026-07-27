@@ -15,6 +15,7 @@ BUNDLE_ID="io.github.kulibabkaaa.HSReconnect"
 LEGACY_APP="$TARGET_ROOT/Applications/Hearthstone Reconnect.app"
 LEGACY_BINARY="$LEGACY_APP/Contents/MacOS/HearthstoneReconnect"
 LEGACY_BUNDLE_ID="com.local.HearthstoneReconnect"
+DESKTOP_SHORTCUT_NAME="HS Reconnect.app"
 
 terminate_exact_executable() {
     local executable="$1"
@@ -67,6 +68,48 @@ ensure_privileged_directory() {
     if [[ "$owner" -ne 0 ]] || (( (mode & 0022) != 0 )); then
         echo "The HS Reconnect installer found an unsafe system folder." >&2
         exit 1
+    fi
+}
+
+user_home_for() {
+    local user="$1"
+    local record user_home
+
+    record="$(
+        /usr/bin/dscl . -read "/Users/$user" NFSHomeDirectory 2>/dev/null ||
+            true
+    )"
+    user_home="${record#*: }"
+    if [[ -z "$record" || "$user_home" != /* ||
+        "$user_home" == "/" || "$user_home" == *$'\n'* ]]; then
+        return 1
+    fi
+    printf '%s\n' "$user_home"
+}
+
+install_desktop_shortcut() {
+    local user="$1"
+    local user_home desktop_dir desktop_shortcut existing_target
+
+    user_home="$(user_home_for "$user" || true)"
+    [[ -n "$user_home" ]] || return 0
+    desktop_dir="$user_home/Desktop"
+    [[ -d "$desktop_dir" ]] || return 0
+    desktop_shortcut="$desktop_dir/$DESKTOP_SHORTCUT_NAME"
+
+    if [[ -L "$desktop_shortcut" ]]; then
+        existing_target="$(
+            /usr/bin/readlink "$desktop_shortcut" 2>/dev/null || true
+        )"
+        [[ "$existing_target" == "$APP" ]] || return 0
+        /bin/rm -f "$desktop_shortcut"
+    elif [[ -e "$desktop_shortcut" ]]; then
+        return 0
+    fi
+
+    if ! /usr/bin/sudo -H -u "$user" \
+        /bin/ln -s "$APP" "$desktop_shortcut"; then
+        echo "HS Reconnect could not create its Desktop shortcut." >&2
     fi
 }
 
@@ -127,5 +170,7 @@ fi
 
 /usr/bin/sudo -H -u "$console_user" \
     /usr/bin/defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
+
+install_desktop_shortcut "$console_user"
 
 exit 0

@@ -150,6 +150,44 @@ final class PackagingContractTests: XCTestCase {
     )
   }
 
+  func testInstallerCreatesAndUninstallerRemovesOnlyItsDesktopShortcut() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot =
+      testFile
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let postinstall = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Packaging/scripts/postinstall"),
+      encoding: .utf8
+    )
+    let uninstaller = try String(
+      contentsOf:
+        repositoryRoot
+        .appendingPathComponent("Scripts/uninstall.sh"),
+      encoding: .utf8
+    )
+
+    for script in [postinstall, uninstaller] {
+      XCTAssertTrue(
+        script.contains("DESKTOP_SHORTCUT_NAME=\"HS Reconnect.app\"")
+      )
+      XCTAssertTrue(script.contains("NFSHomeDirectory"))
+      XCTAssertTrue(
+        script.contains("/usr/bin/readlink \"$desktop_shortcut\"")
+      )
+      XCTAssertFalse(script.contains("/bin/rm -rf \"$desktop_shortcut\""))
+    }
+    XCTAssertTrue(
+      postinstall.contains("/bin/ln -s \"$APP\" \"$desktop_shortcut\"")
+    )
+    XCTAssertTrue(
+      uninstaller.contains("/bin/rm -f \"$desktop_shortcut\"")
+    )
+  }
+
   func testReleaseVerifierNeverOverwritesDistPackage() throws {
     let testFile = URL(fileURLWithPath: #filePath)
     let repositoryRoot =

@@ -5,7 +5,9 @@ Initial public release for native Hearthstone Battlegrounds on macOS.
 - Reconnect with Command-Shift-W or the Reconnect Now button
 - Change and remember the global shortcut
 - Optionally open quietly with Hearthstone
-- Menu bar and Dock access
+- Add a Desktop shortcut during installation
+- Show in the Dock by default, with an option to hide the Dock icon
+- Keep menu bar access when the Dock icon is hidden
 - Apple silicon and Intel support
 - macOS 13 or later
 
