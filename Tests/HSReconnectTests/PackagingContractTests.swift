@@ -175,22 +175,42 @@ final class PackagingContractTests: XCTestCase {
         script.contains("DESKTOP_SHORTCUT_NAME=\"HS Reconnect.app\"")
       )
       XCTAssertTrue(script.contains("NFSHomeDirectory"))
-      XCTAssertTrue(
-        script.contains("/usr/bin/readlink \"$desktop_shortcut\"")
-      )
-      XCTAssertTrue(
-        script.contains(
-          "$.NSURL.URLByResolvingAliasFileAtURLOptionsError"
-        )
-      )
-      XCTAssertTrue(script.contains("desktop_shortcut_target"))
       XCTAssertFalse(script.contains("/bin/rm -rf \"$desktop_shortcut\""))
     }
     XCTAssertTrue(
       postinstall.contains("/bin/ln -s \"$APP\" \"$desktop_shortcut\"")
     )
+    XCTAssertFalse(
+      postinstall.contains("/bin/rm -f \"$desktop_shortcut\"")
+    )
+    XCTAssertFalse(
+      postinstall.contains(
+        "$.NSURL.URLByResolvingAliasFileAtURLOptionsError"
+      )
+    )
+    XCTAssertTrue(
+      uninstaller.contains("/usr/bin/readlink \"$desktop_shortcut\"")
+    )
+    XCTAssertTrue(
+      uninstaller.contains(
+        "$.NSURL.URLByResolvingAliasFileAtURLOptionsError"
+      )
+    )
+    XCTAssertTrue(uninstaller.contains("desktop_shortcut_target"))
     XCTAssertTrue(
       uninstaller.contains("/bin/rm -f \"$desktop_shortcut\"")
+    )
+    let shortcutRemoval = try XCTUnwrap(
+      uninstaller.range(
+        of: "remove_desktop_shortcut \"$user\"\n"
+      )
+    )
+    let privilegeEscalation = try XCTUnwrap(
+      uninstaller.range(of: "exec /usr/bin/sudo")
+    )
+    XCTAssertLessThan(
+      shortcutRemoval.lowerBound,
+      privilegeEscalation.lowerBound
     )
   }
 
