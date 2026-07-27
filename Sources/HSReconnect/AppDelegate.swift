@@ -6,6 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let hotKeyManager = GlobalHotKeyManager()
   private let autoLaunchController = AutoLaunchController()
   private let dockVisibilityController = DockVisibilityController()
+  private let dockVisibilityChangeCoordinator =
+    DockVisibilityChangeCoordinator()
 
   private var statusItem: NSStatusItem!
   private var reconnectMenuItem: NSMenuItem!
@@ -56,8 +58,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self?.autoLaunchController.setEnabled(enabled)
           ?? .failure(AutoLaunchError.unavailable)
       },
-      onShowInDockChanged: { [weak self] enabled in
-        self?.setShowInDock(enabled) ?? false
+      onShowInDockChanged: { [weak self] enabled, completion in
+        guard let self else {
+          completion(false)
+          return
+        }
+        self.dockVisibilityChangeCoordinator.submit(enabled) {
+          [weak self] finalChoice in
+          completion(self?.setShowInDock(finalChoice) ?? false)
+        }
       }
     )
 
