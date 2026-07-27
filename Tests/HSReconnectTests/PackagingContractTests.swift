@@ -178,8 +178,11 @@ final class PackagingContractTests: XCTestCase {
       XCTAssertFalse(script.contains("/bin/rm -rf \"$desktop_shortcut\""))
     }
     XCTAssertTrue(
-      postinstall.contains("/bin/ln -s \"$APP\" \"$desktop_shortcut\"")
+      postinstall.contains(
+        "\"$APP_BINARY\" --create-desktop-shortcut \"$desktop_shortcut\""
+      )
     )
+    XCTAssertFalse(postinstall.contains("/bin/ln -s"))
     XCTAssertFalse(
       postinstall.contains("/bin/rm -f \"$desktop_shortcut\"")
     )
