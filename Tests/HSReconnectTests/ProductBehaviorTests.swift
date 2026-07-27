@@ -1,9 +1,37 @@
 import XCTest
 import AppKit
 import Carbon
+import Darwin
 import ServiceManagement
 
 @testable import HSReconnect
+
+private func finderInfoHasCustomIcon(at url: URL) -> Bool {
+  let finderInfoSize = getxattr(
+    url.path,
+    "com.apple.FinderInfo",
+    nil,
+    0,
+    0,
+    0
+  )
+  guard finderInfoSize >= 9 else { return false }
+  var finderInfo = [UInt8](
+    repeating: 0,
+    count: finderInfoSize
+  )
+  guard getxattr(
+    url.path,
+    "com.apple.FinderInfo",
+    &finderInfo,
+    finderInfoSize,
+    0,
+    0
+  ) == finderInfoSize else {
+    return false
+  }
+  return finderInfo[8] & 0x04 == 0x04
+}
 
 final class ProductBehaviorTests: XCTestCase {
   func testPublicReleaseUsesFixedReconnectTiming() {
@@ -164,6 +192,49 @@ final class ProductBehaviorTests: XCTestCase {
       resolvedURL.standardizedFileURL,
       applicationURL.standardizedFileURL
     )
+    XCTAssertTrue(
+      finderInfoHasCustomIcon(at: shortcutURL),
+      "The alias must carry a custom Finder icon."
+    )
+  }
+
+  func testExistingAppAliasReceivesTheCustomIconOnUpgrade() throws {
+    let fileManager = FileManager.default
+    let root = fileManager.temporaryDirectory.appendingPathComponent(
+      UUID().uuidString,
+      isDirectory: true
+    )
+    defer { try? fileManager.removeItem(at: root) }
+    let applicationURL = root.appendingPathComponent(
+      "HS Reconnect.app",
+      isDirectory: true
+    )
+    let shortcutURL = root.appendingPathComponent(
+      "Desktop/HS Reconnect.app"
+    )
+    try fileManager.createDirectory(
+      at: applicationURL,
+      withIntermediateDirectories: true
+    )
+    try fileManager.createDirectory(
+      at: shortcutURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    let bookmarkData = try applicationURL.bookmarkData(
+      options: [.suitableForBookmarkFile],
+      includingResourceValuesForKeys: nil,
+      relativeTo: nil
+    )
+    try URL.writeBookmarkData(bookmarkData, to: shortcutURL)
+    XCTAssertFalse(finderInfoHasCustomIcon(at: shortcutURL))
+
+    XCTAssertFalse(
+      try DesktopShortcutInstaller.createAliasIfNeeded(
+        applicationURL: applicationURL,
+        shortcutURL: shortcutURL
+      )
+    )
+    XCTAssertTrue(finderInfoHasCustomIcon(at: shortcutURL))
   }
 
   func testDesktopShortcutDoesNotReplaceAnExistingItem() throws {

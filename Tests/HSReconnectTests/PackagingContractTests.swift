@@ -182,6 +182,11 @@ final class PackagingContractTests: XCTestCase {
         "\"$APP_BINARY\" --create-desktop-shortcut \"$desktop_shortcut\""
       )
     )
+    XCTAssertFalse(
+      postinstall.contains(
+        "if [[ -e \"$desktop_shortcut\" || -L \"$desktop_shortcut\" ]]"
+      )
+    )
     XCTAssertFalse(postinstall.contains("/bin/ln -s"))
     XCTAssertFalse(
       postinstall.contains("/bin/rm -f \"$desktop_shortcut\"")
