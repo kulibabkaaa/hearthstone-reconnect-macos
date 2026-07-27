@@ -77,7 +77,9 @@ remove_desktop_shortcut() {
         desktop_shortcut_target "$desktop_shortcut" 2>/dev/null || true
     )"
     if [[ "$existing_target" == "$APP" ]]; then
-        /bin/rm -f "$desktop_shortcut"
+        if ! /bin/rm -f "$desktop_shortcut"; then
+            echo "HS Reconnect could not remove its Desktop shortcut." >&2
+        fi
     fi
 }
 
@@ -119,6 +121,7 @@ if [[ "${1:-}" != "--privileged" ]]; then
         exit 1
     fi
 
+    remove_desktop_shortcut "$user"
     if [[ -x "$APP_BINARY" ]]; then
         "$APP_BINARY" --unregister-login-item || true
     fi
@@ -148,7 +151,6 @@ terminate_exact_executable "$WATCHER_BINARY" "HSReconnectWatcher"
 terminate_exact_executable "$APP_BINARY" "HSReconnect"
 terminate_exact_executable "$LEGACY_BINARY" "HearthstoneReconnect"
 
-remove_desktop_shortcut "$user"
 /bin/rm -f "$HELPER"
 /bin/rm -f "$SUDOERS"
 /bin/rm -rf "$APP"
