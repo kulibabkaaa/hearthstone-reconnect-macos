@@ -3,6 +3,7 @@ import AppKit
 final class SettingsWindowController: NSWindowController {
   private let onReconnect: () -> Void
   private let onShortcutChanged: (UInt32, UInt32, String) -> Bool
+  private let onShortcutRecordingChanged: (Bool) -> Void
   private let onOpenWithHearthstoneChanged: (Bool) -> Result<Void, Error>
   private let onShowInDockChanged: (Bool) -> Bool
 
@@ -31,11 +32,13 @@ final class SettingsWindowController: NSWindowController {
   init(
     onReconnect: @escaping () -> Void,
     onShortcutChanged: @escaping (UInt32, UInt32, String) -> Bool,
+    onShortcutRecordingChanged: @escaping (Bool) -> Void,
     onOpenWithHearthstoneChanged: @escaping (Bool) -> Result<Void, Error>,
     onShowInDockChanged: @escaping (Bool) -> Bool
   ) {
     self.onReconnect = onReconnect
     self.onShortcutChanged = onShortcutChanged
+    self.onShortcutRecordingChanged = onShortcutRecordingChanged
     self.onOpenWithHearthstoneChanged = onOpenWithHearthstoneChanged
     self.onShowInDockChanged = onShowInDockChanged
 
@@ -103,6 +106,9 @@ final class SettingsWindowController: NSWindowController {
 
     shortcutButton.bezelStyle = .rounded
     shortcutButton.setAccessibilityLabel("Change global shortcut")
+    shortcutButton.onRecordingStateChanged = { [weak self] isRecording in
+      self?.onShortcutRecordingChanged(isRecording)
+    }
     shortcutButton.onValidationMessage = { [weak self] message in
       self?.setStatus(
         message,

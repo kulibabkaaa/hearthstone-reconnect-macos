@@ -94,6 +94,91 @@ final class ProductBehaviorTests: XCTestCase {
     XCTAssertEqual(message, "Shortcut change cancelled.")
   }
 
+  func testShortcutRecordingSuspendsTheGlobalHotKeyUntilItEnds() {
+    let window = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 200, height: 100),
+      styleMask: [.titled],
+      backing: .buffered,
+      defer: false
+    )
+    let button = RecorderButton(title: "Cmd+1", target: nil, action: nil)
+    window.contentView?.addSubview(button)
+    var recordingStates: [Bool] = []
+    button.onRecordingStateChanged = { recordingStates.append($0) }
+
+    button.beginRecording()
+
+    XCTAssertEqual(recordingStates, [true])
+
+    window.makeFirstResponder(nil)
+
+    XCTAssertEqual(recordingStates, [true, false])
+  }
+
+  func testPreviousShortcutCanBeSelectedAgainWhileRecording() throws {
+    let window = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 200, height: 100),
+      styleMask: [.titled],
+      backing: .buffered,
+      defer: false
+    )
+    let button = RecorderButton(title: "Cmd+1", target: nil, action: nil)
+    window.contentView?.addSubview(button)
+    var recordingStates: [Bool] = []
+    var recordedShortcut: StoredShortcut?
+    button.onRecordingStateChanged = { recordingStates.append($0) }
+    button.onRecord = { keyCode, modifiers, display in
+      XCTAssertEqual(recordingStates, [true])
+      recordedShortcut = StoredShortcut(
+        keyCode: keyCode,
+        modifiers: modifiers,
+        display: display
+      )
+      return true
+    }
+    let event = try XCTUnwrap(
+      NSEvent.keyEvent(
+        with: .keyDown,
+        location: .zero,
+        modifierFlags: .command,
+        timestamp: 0,
+        windowNumber: window.windowNumber,
+        context: nil,
+        characters: "1",
+        charactersIgnoringModifiers: "1",
+        isARepeat: false,
+        keyCode: UInt16(kVK_ANSI_1)
+      )
+    )
+
+    button.beginRecording()
+    button.keyDown(with: event)
+
+    XCTAssertEqual(
+      recordedShortcut,
+      StoredShortcut(
+        keyCode: UInt32(kVK_ANSI_1),
+        modifiers: UInt32(cmdKey),
+        display: "Cmd+1"
+      )
+    )
+    XCTAssertEqual(button.title, "Cmd+1")
+    XCTAssertEqual(recordingStates, [true, false])
+  }
+
+  func testGlobalHotKeyIsIgnoredUntilShortcutRecordingFinishes() {
+    XCTAssertFalse(
+      shouldTriggerReconnectFromGlobalHotKey(
+        isRecordingShortcut: true
+      )
+    )
+    XCTAssertTrue(
+      shouldTriggerReconnectFromGlobalHotKey(
+        isRecordingShortcut: false
+      )
+    )
+  }
+
   func testCommandQCannotBecomeTheGlobalShortcut() {
     XCTAssertEqual(
       shortcutValidationMessage(

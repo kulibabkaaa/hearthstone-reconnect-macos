@@ -1,6 +1,12 @@
 import AppKit
 import Carbon
 
+func shouldTriggerReconnectFromGlobalHotKey(
+  isRecordingShortcut: Bool
+) -> Bool {
+  !isRecordingShortcut
+}
+
 func fourCharacterCode(_ value: String) -> FourCharCode {
   var result: FourCharCode = 0
   for scalar in value.unicodeScalars.prefix(4) {
