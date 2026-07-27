@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var settingsWindowController: SettingsWindowController!
   private var cooldownTimer: Timer?
   private var userOpenedWindow = false
+  private var isRecordingShortcut = false
 
   init(launchedForHearthstone: Bool) {
     self.launchedForHearthstone = launchedForHearthstone
@@ -48,6 +49,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           display: display
         ) ?? false
       },
+      onShortcutRecordingChanged: { [weak self] isRecording in
+        self?.setShortcutRecordingActive(isRecording)
+      },
       onOpenWithHearthstoneChanged: { [weak self] enabled in
         self?.autoLaunchController.setEnabled(enabled)
           ?? .failure(AutoLaunchError.unavailable)
@@ -58,8 +62,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
 
     hotKeyManager.onHotKey = { [weak self] in
+      guard let self else { return }
+      guard shouldTriggerReconnectFromGlobalHotKey(
+        isRecordingShortcut: self.isRecordingShortcut
+      ) else {
+        AppLog.write("Global shortcut ignored while changing shortcut")
+        return
+      }
       AppLog.write("Global shortcut pressed")
-      self?.runReconnect()
+      self.runReconnect()
     }
     if legacyAppRetired {
       registerStoredHotKey()
@@ -220,6 +231,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         "That shortcut is already in use. Choose another one.",
         isError: true
       )
+    }
+  }
+
+  private func setShortcutRecordingActive(_ isRecording: Bool) {
+    if isRecording {
+      isRecordingShortcut = true
+      hotKeyManager.unregister()
+    } else {
+      registerStoredHotKey()
+      isRecordingShortcut = false
     }
   }
 

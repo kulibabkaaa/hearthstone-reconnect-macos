@@ -3,6 +3,7 @@ import Carbon
 
 final class RecorderButton: NSButton {
   var onRecord: ((UInt32, UInt32, String) -> Bool)?
+  var onRecordingStateChanged: ((Bool) -> Void)?
   var onValidationMessage: ((String) -> Void)?
 
   private var isRecordingShortcut = false
@@ -22,6 +23,7 @@ final class RecorderButton: NSButton {
     isRecordingShortcut = true
     previousTitle = title
     title = "Press shortcut…"
+    onRecordingStateChanged?(true)
     window?.makeFirstResponder(self)
     startKeyMonitor()
   }
@@ -88,6 +90,7 @@ final class RecorderButton: NSButton {
     } else {
       title = previousTitle
     }
+    onRecordingStateChanged?(false)
   }
 
   private func startKeyMonitor() {
@@ -117,6 +120,7 @@ final class RecorderButton: NSButton {
     isRecordingShortcut = false
     stopKeyMonitor()
     title = previousTitle
+    onRecordingStateChanged?(false)
     onValidationMessage?("Shortcut change cancelled.")
   }
 
