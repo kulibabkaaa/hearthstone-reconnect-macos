@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
   private let launchMode: AppLaunchMode
@@ -28,6 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var isUninstalling = false
   private var isUninstallCleanupStarted = false
   private var restoreAutoLaunchAfterFailedUninstall = false
+  private var isAwaitingSystemExtensionApproval = false
+  private var shouldPresentSystemExtensionApprovalReminder = false
+  private var systemExtensionApprovalReminder =
+    SystemExtensionApprovalReminder()
 
   private var launchedForHearthstone: Bool {
     launchMode.launchedForHearthstone
@@ -76,6 +81,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     _ sender: NSApplication
   ) -> Bool {
     false
+  }
+
+  func applicationDidBecomeActive(
+    _ notification: Notification
+  ) {
+    presentSystemExtensionApprovalReminderWhenPossible()
   }
 
   func applicationShouldHandleReopen(
@@ -135,6 +146,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ) ?? false
           )
         }
+      },
+      onOpenSystemSettings: { [weak self] in
+        self?.openSystemExtensionSettings()
       },
       onUninstall: { [weak self] in
         self?.confirmUninstall()
@@ -206,9 +220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func configureSystemExtensionStatusHandlers() {
     systemExtensionController.onApprovalRequired = {
       [weak self] in
-      self?.windowController.setStatus(
-        "Allow HS Reconnect in System Settings, then return here."
-      )
+      self?.handleSystemExtensionApprovalRequired()
     }
     systemExtensionController.onDeactivationApprovalRequired = {
       [weak self] in
@@ -216,6 +228,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         "Approve removing HS Reconnect in System Settings, then return here."
       )
     }
+  }
+
+  private func handleSystemExtensionApprovalRequired() {
+    isAwaitingSystemExtensionApproval = true
+    windowController.setSystemExtensionApprovalRequired(true)
+    windowController.setStatus(
+      "In Extensions, open Network Extensions and allow HS Reconnect."
+    )
+
+    let hasSeenSystemPromptBefore =
+      UserDefaults.standard.bool(
+        forKey:
+          DefaultsKey.hasSeenSystemExtensionApprovalPrompt
+      )
+    UserDefaults.standard.set(
+      true,
+      forKey:
+        DefaultsKey.hasSeenSystemExtensionApprovalPrompt
+    )
+
+    guard
+      systemExtensionApprovalReminder.shouldPresentAppReminder(
+        hasSeenSystemPromptBefore: hasSeenSystemPromptBefore
+      )
+    else {
+      return
+    }
+    shouldPresentSystemExtensionApprovalReminder = true
+    showWindow()
+    presentSystemExtensionApprovalReminderWhenPossible()
+  }
+
+  private func presentSystemExtensionApprovalReminderWhenPossible() {
+    guard
+      isAwaitingSystemExtensionApproval,
+      shouldPresentSystemExtensionApprovalReminder,
+      !isUninstalling
+    else {
+      return
+    }
+    guard
+      NSApp.isActive,
+      NSApp.modalWindow == nil,
+      let window = windowController.window,
+      window.attachedSheet == nil
+    else {
+      return
+    }
+
+    shouldPresentSystemExtensionApprovalReminder = false
+    let alert = NSAlert()
+    alert.alertStyle = .informational
+    alert.messageText = "Finish setting up HS Reconnect"
+    alert.informativeText =
+      "Allow HS Reconnect under Network Extensions in System Settings."
+    alert.addButton(withTitle: "Open System Settings")
+    alert.addButton(withTitle: "Not Now")
+    alert.beginSheetModal(for: window) { [weak self] response in
+      guard response == .alertFirstButtonReturn else {
+        return
+      }
+      self?.openSystemExtensionSettings()
+    }
+  }
+
+  private func openSystemExtensionSettings() {
+    SMAppService.openSystemSettingsLoginItems()
   }
 
   private func prepareProxy() {
@@ -233,10 +312,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           isError: true
         )
       case .success(.requiresReboot):
+        self.isAwaitingSystemExtensionApproval = false
+        self.shouldPresentSystemExtensionApprovalReminder = false
+        self.windowController
+          .setSystemExtensionApprovalRequired(false)
         self.windowController.setStatus(
           "Restart your Mac once, then open HS Reconnect again."
         )
       case .success(.activated):
+        self.isAwaitingSystemExtensionApproval = false
+        self.shouldPresentSystemExtensionApprovalReminder = false
+        self.windowController
+          .setSystemExtensionApprovalRequired(false)
         self.proxyController.prepare { [weak self] prepareResult in
           guard let self else { return }
           if self.isUninstalling {
@@ -472,6 +559,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     windowController.window?.makeKeyAndOrderFront(nil)
     NSApp.activate(ignoringOtherApps: true)
     windowController.refresh()
+    presentSystemExtensionApprovalReminderWhenPossible()
   }
 
   private func confirmUninstall() {

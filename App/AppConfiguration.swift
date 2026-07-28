@@ -24,6 +24,8 @@ enum DefaultsKey {
   static let showInDock = "appearance.showInDock"
   static let didConfigureDefaultLoginItem =
     "loginItem.didConfigureDefault"
+  static let hasSeenSystemExtensionApprovalPrompt =
+    "systemExtension.hasSeenApprovalPrompt"
   static let lastReconnectAt = "reconnect.lastAt"
 }
 

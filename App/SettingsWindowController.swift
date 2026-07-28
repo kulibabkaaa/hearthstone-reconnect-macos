@@ -6,6 +6,7 @@ final class SettingsWindowController: NSWindowController {
   private let onShortcutRecordingChanged: (Bool) -> Void
   private let onOpenWithHearthstoneChanged: (Bool) -> Result<Void, Error>
   private let onShowInDockChanged: (Bool, @escaping (Bool) -> Void) -> Void
+  private let onOpenSystemSettings: () -> Void
   private let onUninstall: () -> Void
 
   private let statusLabel = NSTextField(
@@ -32,6 +33,11 @@ final class SettingsWindowController: NSWindowController {
     target: nil,
     action: nil
   )
+  private let systemExtensionSettingsButton = NSButton(
+    title: "Open System Settings",
+    target: nil,
+    action: nil
+  )
   private let uninstallButton = NSButton(
     title: "Uninstall",
     target: nil,
@@ -44,6 +50,7 @@ final class SettingsWindowController: NSWindowController {
     onShortcutRecordingChanged: @escaping (Bool) -> Void,
     onOpenWithHearthstoneChanged: @escaping (Bool) -> Result<Void, Error>,
     onShowInDockChanged: @escaping (Bool, @escaping (Bool) -> Void) -> Void,
+    onOpenSystemSettings: @escaping () -> Void,
     onUninstall: @escaping () -> Void
   ) {
     self.onReconnect = onReconnect
@@ -53,6 +60,7 @@ final class SettingsWindowController: NSWindowController {
     self.onOpenWithHearthstoneChanged =
       onOpenWithHearthstoneChanged
     self.onShowInDockChanged = onShowInDockChanged
+    self.onOpenSystemSettings = onOpenSystemSettings
     self.onUninstall = onUninstall
 
     let window = NSWindow(
@@ -104,6 +112,10 @@ final class SettingsWindowController: NSWindowController {
     reconnectButton.isEnabled = enabled
   }
 
+  func setSystemExtensionApprovalRequired(_ required: Bool) {
+    systemExtensionSettingsButton.isHidden = !required
+  }
+
   func setUninstalling(_ uninstalling: Bool) {
     uninstallButton.title =
       uninstalling ? "Uninstalling…" : "Uninstall"
@@ -112,6 +124,7 @@ final class SettingsWindowController: NSWindowController {
     openWithHearthstoneCheckbox.isEnabled = !uninstalling
     showInDockCheckbox.isEnabled = !uninstalling
     reconnectButton.isEnabled = !uninstalling
+    systemExtensionSettingsButton.isEnabled = !uninstalling
   }
 
   private func buildInterface() {
@@ -218,9 +231,28 @@ final class SettingsWindowController: NSWindowController {
     reconnectButton.keyEquivalent = "\r"
     reconnectButton.setAccessibilityLabel("Reconnect now")
 
+    systemExtensionSettingsButton.target = self
+    systemExtensionSettingsButton.action =
+      #selector(openSystemSettings)
+    systemExtensionSettingsButton.bezelStyle = .rounded
+    systemExtensionSettingsButton.isHidden = true
+    systemExtensionSettingsButton.setAccessibilityLabel(
+      "Open Network Extension settings"
+    )
+
     statusLabel.textColor = .secondaryLabelColor
     statusLabel.maximumNumberOfLines = 2
     statusLabel.setAccessibilityLabel("Status")
+    statusLabel.setContentCompressionResistancePriority(
+      .defaultLow,
+      for: .horizontal
+    )
+    let statusRow = NSStackView(
+      views: [statusLabel, systemExtensionSettingsButton]
+    )
+    statusRow.orientation = .horizontal
+    statusRow.alignment = .centerY
+    statusRow.spacing = 12
 
     let stack = NSStackView(
       views: [
@@ -230,7 +262,7 @@ final class SettingsWindowController: NSWindowController {
         openWithHearthstoneCheckbox,
         showInDockCheckbox,
         reconnectButton,
-        statusLabel,
+        statusRow,
       ]
     )
     stack.orientation = .vertical
@@ -265,11 +297,18 @@ final class SettingsWindowController: NSWindowController {
       reconnectButton.widthAnchor.constraint(
         equalTo: stack.widthAnchor
       ),
+      statusRow.widthAnchor.constraint(
+        equalTo: stack.widthAnchor
+      ),
     ])
   }
 
   @objc private func reconnectNow() {
     onReconnect()
+  }
+
+  @objc private func openSystemSettings() {
+    onOpenSystemSettings()
   }
 
   @objc private func uninstall() {

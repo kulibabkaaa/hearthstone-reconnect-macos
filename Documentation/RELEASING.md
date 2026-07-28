@@ -1,6 +1,6 @@
 # Releasing HS Reconnect
 
-Version 1.0.3 is distributed directly from GitHub as a notarized, signed DMG
+Version 1.0.4 is distributed directly from GitHub as a notarized, signed DMG
 containing the signed installer.
 
 ## Requirements
@@ -30,7 +30,7 @@ Network Extension system extensions.
 ```sh
 Scripts/notarize-release.sh submit
 Scripts/notarize-release.sh finish \
-  dist/HS-Reconnect-1.0.3.dmg SUBMISSION_ID
+  dist/HS-Reconnect-1.0.4.dmg SUBMISSION_ID
 ```
 
 The finish step staples Apple's ticket and verifies Gatekeeper acceptance.
@@ -38,9 +38,9 @@ The finish step staples Apple's ticket and verifies Gatekeeper acceptance.
 ## Verify
 
 ```sh
-Scripts/verify-release.sh dist/HS-Reconnect-1.0.3.dmg
+Scripts/verify-release.sh dist/HS-Reconnect-1.0.4.dmg
 ```
 
-Only the verified, stapled DMG is attached to the GitHub v1.0.3 release. GitHub
+Only the verified, stapled DMG is attached to the GitHub v1.0.4 release. GitHub
 exposes that asset's cumulative `download_count` through its Releases API. This
 counts asset downloads without adding analytics to the app.

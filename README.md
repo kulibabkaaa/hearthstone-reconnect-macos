@@ -16,11 +16,13 @@ Command-Shift-W, and it can be changed in the app.
 
 ## Install
 
-1. Download `HS-Reconnect-1.0.3.dmg` from the latest GitHub release.
+1. Download `HS-Reconnect-1.0.4.dmg` from the latest GitHub release.
 2. Open the disk image, then open `Install HS Reconnect.pkg`.
 3. Approve the installation.
 4. Open HS Reconnect from Applications or its Desktop shortcut.
 5. Approve the system extension and network configuration if macOS asks.
+   If you dismiss the approval dialog, reopen HS Reconnect and use
+   **Open System Settings** beside the setup message.
 6. Leave **Open HS Reconnect with Hearthstone** checked if you want it to
    start quietly with the game.
 
