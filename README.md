@@ -5,7 +5,7 @@
 # HS Reconnect
 
 HS Reconnect is a small macOS utility for native Hearthstone Battlegrounds.
-Press the global shortcut to trigger a reconnect. The default shortcut is
+Press the global shortcut to trigger an immediate reconnect. The default is
 Command-Shift-W, and it can be changed in the app.
 
 ## Requirements
@@ -17,57 +17,48 @@ Command-Shift-W, and it can be changed in the app.
 ## Install
 
 1. Download `HS-Reconnect-1.0.0.pkg` from the latest GitHub release.
-2. Open the package and approve the installation.
-3. Open HS Reconnect once from Applications.
-4. Leave **Open HS Reconnect with Hearthstone** checked if you want the app to
-   start quietly when Hearthstone opens.
+2. Open the installer and approve the installation.
+3. Open HS Reconnect from Applications or its Desktop shortcut.
+4. Approve the system extension and network configuration if macOS asks.
+5. Leave **Open HS Reconnect with Hearthstone** checked if you want it to
+   start quietly with the game.
 
-The installer also creates an HS Reconnect shortcut on the current user's
-Desktop. The app shows both a menu bar icon and a Dock icon by default. Turn
-off **Show HS Reconnect in Dock** if you want to use only the menu bar icon.
-The menu contains **Reconnect**, **Open Window**, and **Quit**.
+The app shows a menu bar icon and a Dock icon by default. Turn off
+**Show HS Reconnect in Dock** if you prefer menu-bar-only operation.
 
-## What the installer adds
+## How it works
 
-The installer places the app in `/Applications` for all users. It also installs
-a root-owned helper at `/usr/local/libexec/hsreconnect-helper` and a narrowly
-scoped sudo rule at `/etc/sudoers.d/hsreconnect` for the signed-in console user.
-It adds a Desktop shortcut for that user without replacing an existing Desktop
-item with the same name.
+HS Reconnect uses a local macOS Network Extension that passes native
+Hearthstone game traffic through unchanged. When you reconnect, it closes only
+the current Hearthstone game connection so the game reconnects immediately.
 
-The helper verifies the running native Hearthstone process and its current game
-connection before applying a short, targeted network reset. HS Reconnect refuses
-to use an installed helper that differs from the copy inside the app.
+There is no root helper, sudo rule, traffic redirection, analytics, advertising,
+or project server.
 
 ## Privacy
 
-HS Reconnect has no analytics, telemetry, advertising, or remote crash service.
-Local diagnostic logs redact network addresses and are removed after seven
-days. See [PRIVACY.md](PRIVACY.md).
+HS Reconnect does not collect or transmit personal data. See
+[PRIVACY.md](PRIVACY.md).
 
-## Uninstall
+## Remove
 
-Open Terminal and run:
-
-```sh
-"/Applications/HS Reconnect.app/Contents/Resources/uninstall.sh"
-```
-
-The uninstaller asks for administrator approval, then removes the app, its
-Desktop shortcut, helper, sudo rule, local logs, preferences, and package
-receipt.
+1. Turn off **Open HS Reconnect with Hearthstone** and quit the app.
+2. Move the Desktop shortcut and `/Applications/HS Reconnect.app` to Trash.
+3. If macOS still shows the extension, remove HS Reconnect under **System
+   Settings → General → Login Items & Extensions → Network Extensions**.
 
 ## Build from source
 
+The project requires Xcode 16 or later and
+[XcodeGen](https://github.com/yonaskolb/XcodeGen).
+
 ```sh
 swift test
-Scripts/build_app.sh
-Scripts/build_package.sh
+Scripts/build-local.sh
 ```
 
-Local builds are ad-hoc signed. A public release must be signed with Developer
-ID Application and Developer ID Installer certificates, notarized, stapled, and
-verified. The complete process is in
+Public builds require Developer ID Application and Developer ID Installer
+certificates, Network Extension provisioning, and Apple notarization. See
 [Documentation/RELEASING.md](Documentation/RELEASING.md).
 
 ## Support
@@ -77,8 +68,7 @@ Email `kulibabagood@gmail.com`.
 ## Disclaimer
 
 HS Reconnect is unofficial and is not affiliated with, endorsed by, or
-sponsored by Blizzard Entertainment. Use it at your own risk. Game behavior and
-policies may change, which may cause HS Reconnect to stop working or become
-unsuitable for use.
+sponsored by Blizzard Entertainment. Use it at your own risk. Game behavior
+and policies may change.
 
 HS Reconnect is free software released under the [MIT License](LICENSE).

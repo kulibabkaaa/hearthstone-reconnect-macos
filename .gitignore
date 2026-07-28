@@ -9,6 +9,8 @@ dist/
 *.key
 *.mobileprovision
 notary-profile*
+HSReconnect.xcodeproj/
+*.xcarchive
 Support/AppIcon.iconset/
 Support/AppIcon.png
 Support/AppIcon.icns

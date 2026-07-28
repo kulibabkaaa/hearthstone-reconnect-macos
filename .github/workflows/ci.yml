@@ -23,11 +23,13 @@ jobs:
       - name: Run Swift tests
         run: swift test
 
-      - name: Check shell scripts
+      - name: Verify source and packaging contracts
         run: |
-          bash -n Support/hsreconnect-helper
-          bash -n Scripts/*.sh
-          bash -n Packaging/scripts/postinstall
+          chmod +x Scripts/*.sh Scripts/Installer/* Tests/*/run-tests.sh
+          zsh -n Scripts/*.sh Scripts/Installer/* Tests/*/run-tests.sh
+          Scripts/verify-system-extension-config.sh
+          Tests/Packaging/run-tests.sh
+          Tests/ReleaseContract/run-tests.sh
 
   intel-tests:
     name: intel-tests

@@ -1,0 +1,23 @@
+#!/bin/zsh
+set -euo pipefail
+
+console_user="$(stat -f '%Su' /dev/console)"
+
+case "${console_user}" in
+  ""|root|loginwindow)
+    exit 0
+    ;;
+esac
+
+console_home="$(
+  dscl . -read "/Users/${console_user}" NFSHomeDirectory 2>/dev/null \
+    | cut -d ' ' -f 2-
+)"
+
+[[ -n "${console_home}" ]] || exit 0
+
+script_dir="${0:A:h}"
+"${script_dir}/create-desktop-shortcut.sh" \
+  "${console_home}" \
+  "${console_user}" \
+  "/Applications/HS Reconnect.app"

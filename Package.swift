@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
@@ -7,15 +7,17 @@ let package = Package(
     .macOS(.v13)
   ],
   products: [
-    .executable(name: "HSReconnect", targets: ["HSReconnect"]),
-    .executable(name: "HSReconnectWatcher", targets: ["HSReconnectWatcher"]),
+    .library(name: "ProxyCore", targets: ["ProxyCore"])
   ],
   targets: [
-    .executableTarget(name: "HSReconnect"),
-    .executableTarget(name: "HSReconnectWatcher"),
+    .target(
+      name: "ProxyCore",
+      path: "Shared/ProxyCore"
+    ),
     .testTarget(
-      name: "HSReconnectTests",
-      dependencies: ["HSReconnect"]
+      name: "ProxyCoreTests",
+      dependencies: ["ProxyCore"],
+      path: "Tests/ProxyCoreTests"
     ),
   ]
 )
