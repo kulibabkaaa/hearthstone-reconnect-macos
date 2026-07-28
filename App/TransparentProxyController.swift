@@ -12,6 +12,32 @@ enum TransparentProxyControllerError: Error {
 final class TransparentProxyController {
   private var retainedManager: NETransparentProxyManager?
 
+  func removeConfiguration(
+    completion: @escaping (Result<Void, Error>) -> Void
+  ) {
+    NETransparentProxyManager.loadAllFromPreferences {
+      managers, error in
+      DispatchQueue.main.async {
+        if let error {
+          completion(.failure(error))
+          return
+        }
+
+        let ownedManagers = (managers ?? []).filter {
+          AppRemovalPlan.ownsProxyConfiguration(
+            providerBundleIdentifier: ($0.protocolConfiguration
+              as? NETunnelProviderProtocol)?
+              .providerBundleIdentifier
+          )
+        }
+        self.removeConfigurations(
+          ownedManagers[...],
+          completion: completion
+        )
+      }
+    }
+  }
+
   func prepare(
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
@@ -84,6 +110,31 @@ final class TransparentProxyController {
           completion(.success(matching ?? NETransparentProxyManager()))
         }
       }
+  }
+
+  private func removeConfigurations(
+    _ managers: ArraySlice<NETransparentProxyManager>,
+    completion: @escaping (Result<Void, Error>) -> Void
+  ) {
+    guard let manager = managers.first else {
+      retainedManager = nil
+      completion(.success(()))
+      return
+    }
+
+    manager.connection.stopVPNTunnel()
+    manager.removeFromPreferences { [weak self] error in
+      DispatchQueue.main.async {
+        if let error {
+          completion(.failure(error))
+          return
+        }
+        self?.removeConfigurations(
+          managers.dropFirst(),
+          completion: completion
+        )
+      }
+    }
   }
 
   private func configureIfNeeded(

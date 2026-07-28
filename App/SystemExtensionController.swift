@@ -6,21 +6,57 @@ enum SystemExtensionActivationResult {
   case requiresReboot
 }
 
+enum SystemExtensionDeactivationResult {
+  case deactivated
+  case requiresReboot
+}
+
 final class SystemExtensionController:
   NSObject, OSSystemExtensionRequestDelegate
 {
   var onApprovalRequired: (() -> Void)?
+  var onDeactivationApprovalRequired: (() -> Void)?
 
-  private var completion: ((Result<SystemExtensionActivationResult, Error>) -> Void)?
+  private enum Operation {
+    case activation(
+      (Result<SystemExtensionActivationResult, Error>) -> Void
+    )
+    case deactivation(
+      (Result<SystemExtensionDeactivationResult, Error>) -> Void
+    )
+  }
+
+  private var operation: Operation?
+  private var pendingDeactivation: ((Result<SystemExtensionDeactivationResult, Error>) -> Void)?
   private var request: OSSystemExtensionRequest?
 
   func activate(
     completion: @escaping (Result<SystemExtensionActivationResult, Error>) -> Void
   ) {
-    guard self.completion == nil else { return }
+    guard operation == nil else { return }
 
-    self.completion = completion
+    operation = .activation(completion)
     let request = OSSystemExtensionRequest.activationRequest(
+      forExtensionWithIdentifier:
+        AppConfiguration.extensionBundleIdentifier,
+      queue: .main
+    )
+    request.delegate = self
+    self.request = request
+    OSSystemExtensionManager.shared.submitRequest(request)
+  }
+
+  func deactivate(
+    completion:
+      @escaping (Result<SystemExtensionDeactivationResult, Error>) -> Void
+  ) {
+    guard operation == nil else {
+      pendingDeactivation = completion
+      return
+    }
+
+    operation = .deactivation(completion)
+    let request = OSSystemExtensionRequest.deactivationRequest(
       forExtensionWithIdentifier:
         AppConfiguration.extensionBundleIdentifier,
       queue: .main
@@ -33,7 +69,14 @@ final class SystemExtensionController:
   func requestNeedsUserApproval(
     _ request: OSSystemExtensionRequest
   ) {
-    onApprovalRequired?()
+    switch operation {
+    case .activation:
+      onApprovalRequired?()
+    case .deactivation:
+      onDeactivationApprovalRequired?()
+    case nil:
+      break
+    }
   }
 
   func request(
@@ -49,27 +92,66 @@ final class SystemExtensionController:
     _ request: OSSystemExtensionRequest,
     didFinishWithResult result: OSSystemExtensionRequest.Result
   ) {
-    let value: SystemExtensionActivationResult =
-      result == .willCompleteAfterReboot
-      ? .requiresReboot
-      : .activated
-    finish(.success(value))
+    guard let operation = beginFinishing() else { return }
+    switch operation {
+    case .activation(let completion):
+      completion(
+        .success(
+          result == .willCompleteAfterReboot
+            ? .requiresReboot
+            : .activated
+        )
+      )
+    case .deactivation(let completion):
+      completion(
+        .success(
+          result == .willCompleteAfterReboot
+            ? .requiresReboot
+            : .deactivated
+        )
+      )
+    }
+    startPendingDeactivationIfNeeded()
   }
 
   func request(
     _ request: OSSystemExtensionRequest,
     didFailWithError error: Error
   ) {
-    finish(.failure(error))
+    guard let operation = beginFinishing() else { return }
+    switch operation {
+    case .activation(let completion):
+      completion(.failure(error))
+    case .deactivation(let completion):
+      if Self.isExtensionNotFound(error) {
+        completion(.success(.deactivated))
+      } else {
+        completion(.failure(error))
+      }
+    }
+    startPendingDeactivationIfNeeded()
   }
 
-  private func finish(
-    _ result:
-      Result<SystemExtensionActivationResult, Error>
-  ) {
-    let completion = self.completion
-    self.completion = nil
+  private func beginFinishing() -> Operation? {
+    let operation = self.operation
+    self.operation = nil
     request = nil
-    completion?(result)
+    return operation
+  }
+
+  private func startPendingDeactivationIfNeeded() {
+    if let pendingDeactivation {
+      self.pendingDeactivation = nil
+      deactivate(completion: pendingDeactivation)
+    }
+  }
+
+  private static func isExtensionNotFound(
+    _ error: Error
+  ) -> Bool {
+    let error = error as NSError
+    return error.domain == OSSystemExtensionErrorDomain
+      && error.code
+        == OSSystemExtensionError.Code.extensionNotFound.rawValue
   }
 }

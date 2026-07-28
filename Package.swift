@@ -7,17 +7,27 @@ let package = Package(
     .macOS(.v13)
   ],
   products: [
-    .library(name: "ProxyCore", targets: ["ProxyCore"])
+    .library(name: "ProxyCore", targets: ["ProxyCore"]),
+    .library(name: "AppCore", targets: ["AppCore"]),
   ],
   targets: [
     .target(
       name: "ProxyCore",
       path: "Shared/ProxyCore"
     ),
+    .target(
+      name: "AppCore",
+      path: "Shared/AppCore"
+    ),
     .testTarget(
       name: "ProxyCoreTests",
       dependencies: ["ProxyCore"],
       path: "Tests/ProxyCoreTests"
+    ),
+    .testTarget(
+      name: "AppCoreTests",
+      dependencies: ["AppCore"],
+      path: "Tests/AppCoreTests"
     ),
   ]
 )

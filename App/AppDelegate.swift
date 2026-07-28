@@ -11,6 +11,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let systemExtensionController =
     SystemExtensionController()
   private let proxyController = TransparentProxyController()
+  private lazy var appUninstaller = AppUninstaller(
+    autoLaunchController: autoLaunchController,
+    proxyController: proxyController,
+    systemExtensionController: systemExtensionController
+  )
 
   private var statusItem: NSStatusItem!
   private var reconnectMenuItem: NSMenuItem!
@@ -19,7 +24,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var isRecordingShortcut = false
   private var isReconnectRunning = false
   private var isProxyReady = false
+  private var isPreparingProxy = false
   private var userOpenedWindow = false
+  private var isUninstalling = false
+  private var isUninstallCleanupStarted = false
+  private var restoreAutoLaunchAfterFailedUninstall = false
 
   init(launchedForHearthstone: Bool) {
     self.launchedForHearthstone = launchedForHearthstone
@@ -117,6 +126,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ) ?? false
           )
         }
+      },
+      onUninstall: { [weak self] in
+        self?.confirmUninstall()
       }
     )
 
@@ -193,8 +205,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         "Allow HS Reconnect in System Settings, then return here."
       )
     }
+    systemExtensionController.onDeactivationApprovalRequired = {
+      [weak self] in
+      self?.windowController.setStatus(
+        "Approve removing HS Reconnect in System Settings, then return here."
+      )
+    }
     systemExtensionController.activate { [weak self] result in
       guard let self else { return }
+      guard !self.isUninstalling else { return }
       switch result {
       case .failure:
         self.windowController.setStatus(
@@ -206,8 +225,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           "Restart your Mac once, then open HS Reconnect again."
         )
       case .success(.activated):
+        self.isPreparingProxy = true
         self.proxyController.prepare { [weak self] prepareResult in
           guard let self else { return }
+          self.isPreparingProxy = false
+          if self.isUninstalling {
+            self.beginUninstallCleanup()
+            return
+          }
           switch prepareResult {
           case .success:
             self.isProxyReady = true
@@ -284,6 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     proxyController.reconnect(target: target) { [weak self] result in
       guard let self else { return }
+      guard !self.isUninstalling else { return }
       self.isReconnectRunning = false
       switch result {
       case .failure:
@@ -427,6 +453,80 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     windowController.window?.makeKeyAndOrderFront(nil)
     NSApp.activate(ignoringOtherApps: true)
     windowController.refresh()
+  }
+
+  private func confirmUninstall() {
+    guard !isUninstalling else { return }
+
+    let alert = NSAlert()
+    alert.alertStyle = .warning
+    alert.messageText = "Uninstall HS Reconnect?"
+    alert.informativeText =
+      "This removes HS Reconnect, its network extension, settings, and Desktop shortcut."
+    alert.addButton(withTitle: "Uninstall")
+    alert.addButton(withTitle: "Cancel")
+    alert.buttons.first?.hasDestructiveAction = true
+
+    guard alert.runModal() == .alertFirstButtonReturn else {
+      return
+    }
+
+    isUninstalling = true
+    isUninstallCleanupStarted = false
+    restoreAutoLaunchAfterFailedUninstall =
+      UserDefaults.standard.bool(
+        forKey: DefaultsKey.openWithHearthstone
+      )
+    isProxyReady = false
+    hotKeyManager.unregister()
+    windowController.setUninstalling(true)
+    windowController.setStatus("Uninstalling HS Reconnect…")
+    updateReconnectAvailability()
+
+    if !isPreparingProxy {
+      beginUninstallCleanup()
+    }
+  }
+
+  private func beginUninstallCleanup() {
+    guard isUninstalling, !isUninstallCleanupStarted else {
+      return
+    }
+    isUninstallCleanupStarted = true
+
+    appUninstaller.uninstall { [weak self] result in
+      guard let self else { return }
+      switch result {
+      case .success:
+        NSApp.terminate(nil)
+      case .failure(let error):
+        self.isUninstalling = false
+        self.isUninstallCleanupStarted = false
+        self.isReconnectRunning = false
+        if self.restoreAutoLaunchAfterFailedUninstall {
+          _ = self.autoLaunchController.setEnabled(true)
+        }
+        self.restoreAutoLaunchAfterFailedUninstall = false
+        self.registerStoredHotKey()
+        self.windowController.setUninstalling(false)
+        self.windowController.setStatus(
+          self.uninstallFailureMessage(error),
+          isError: true
+        )
+        self.updateReconnectAvailability()
+        self.prepareProxy()
+      }
+    }
+  }
+
+  private func uninstallFailureMessage(_ error: Error) -> String {
+    if let error = error as? AppUninstallerError,
+      case .notInstalledInApplications = error
+    {
+      return
+        "Open the installed copy from Applications, then try again."
+    }
+    return "HS Reconnect couldn't be uninstalled. Please try again."
   }
 
   @objc private func menuReconnect() {

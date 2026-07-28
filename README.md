@@ -16,7 +16,7 @@ Command-Shift-W, and it can be changed in the app.
 
 ## Install
 
-1. Download `HS-Reconnect-1.0.0.dmg` from the latest GitHub release.
+1. Download `HS-Reconnect-1.0.1.dmg` from the latest GitHub release.
 2. Open the disk image, then open `Install HS Reconnect.pkg`.
 3. Approve the installation.
 4. Open HS Reconnect from Applications or its Desktop shortcut.
@@ -49,10 +49,12 @@ users. The app contains no download tracking or analytics.
 
 ## Remove
 
-1. Turn off **Open HS Reconnect with Hearthstone** and quit the app.
-2. Move the Desktop shortcut and `/Applications/HS Reconnect.app` to Trash.
-3. If macOS still shows the extension, remove HS Reconnect under **System
-   Settings → General → Login Items & Extensions → Network Extensions**.
+1. Open HS Reconnect and click the red **Uninstall** button.
+2. Confirm removal and enter your Mac administrator password.
+
+The app disables its Hearthstone watcher, removes its local proxy
+configuration and Network Extension, deletes its settings and Desktop shortcut,
+forgets the installer receipt, removes the installed app, and quits.
 
 ## Build from source
 
