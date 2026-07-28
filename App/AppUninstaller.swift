@@ -2,7 +2,16 @@ import AppKit
 
 enum AppUninstallerError: Error {
   case notInstalledInApplications
-  case removalFailed
+  case removalFailedAfterExtensionDeactivation
+
+  var failureStage: AppUninstallFailureStage {
+    switch self {
+    case .notInstalledInApplications:
+      .extensionStillInstalled
+    case .removalFailedAfterExtensionDeactivation:
+      .extensionDeactivated
+    }
+  }
 }
 
 final class AppUninstaller {
@@ -76,11 +85,20 @@ final class AppUninstaller {
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
     var errorInfo: NSDictionary?
+    let appleScript = plan.privilegedRemovalAppleScript(
+      waitingForProcessIdentifier:
+        ProcessInfo.processInfo.processIdentifier
+    )
     guard
-      NSAppleScript(source: plan.privilegedRemovalAppleScript)?
+      NSAppleScript(source: appleScript)?
         .executeAndReturnError(&errorInfo) != nil
     else {
-      completion(.failure(AppUninstallerError.removalFailed))
+      completion(
+        .failure(
+          AppUninstallerError
+            .removalFailedAfterExtensionDeactivation
+        )
+      )
       return
     }
 

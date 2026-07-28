@@ -93,7 +93,9 @@ struct AppRemovalPlanTests {
   @Test("privileged removal command quotes paths")
   func privilegedCommandIsSafelyQuoted() {
     let plan = AppRemovalPlan(homeDirectory: home)
-    let command = plan.privilegedRemovalCommand
+    let command = plan.privilegedRemovalCommand(
+      waitingForProcessIdentifier: 4321
+    )
 
     #expect(
       command.contains(
@@ -112,10 +114,15 @@ struct AppRemovalPlanTests {
     )
   }
 
-  @Test("privileged removal deletes the owned Desktop symlink first")
-  func privilegedCommandRemovesDesktopShortcutFirst() {
+  @Test("privileged removal waits for the app to quit")
+  func privilegedCommandWaitsForAppExit() {
     let plan = AppRemovalPlan(homeDirectory: home)
-    let command = plan.privilegedRemovalCommand
+    let privilegedCommand = plan.privilegedRemovalCommand(
+      waitingForProcessIdentifier: 4321
+    )
+    let command = plan.deferredRemovalCommand(
+      waitingForProcessIdentifier: 4321
+    )
     let shortcutPath =
       "'/Users/Test Person/Desktop/HS Reconnect.app'"
     let shortcutRemoval =
@@ -123,6 +130,12 @@ struct AppRemovalPlanTests {
     let appRemoval =
       "/bin/rm -rf -- '/Applications/HS Reconnect.app'"
 
+    #expect(
+      command.contains(
+        "while /bin/kill -0 4321"
+      )
+    )
+    #expect(privilegedCommand.contains("/usr/bin/nohup"))
     #expect(
       command.contains(
         "[ -L \(shortcutPath) ]"
@@ -148,14 +161,17 @@ struct AppRemovalPlanTests {
   @Test("AppleScript wraps the fixed command without interpolation")
   func privilegedAppleScriptIsEscaped() {
     let plan = AppRemovalPlan(homeDirectory: home)
+    let appleScript = plan.privilegedRemovalAppleScript(
+      waitingForProcessIdentifier: 4321
+    )
 
     #expect(
-      plan.privilegedRemovalAppleScript.hasPrefix(
-        "do shell script \"set -e;"
+      appleScript.hasPrefix(
+        "do shell script \""
       )
     )
     #expect(
-      plan.privilegedRemovalAppleScript.hasSuffix(
+      appleScript.hasSuffix(
         "\" with administrator privileges"
       )
     )
@@ -165,7 +181,9 @@ struct AppRemovalPlanTests {
   func privilegedAppleScriptCompiles() {
     let plan = AppRemovalPlan(homeDirectory: home)
     let script = NSAppleScript(
-      source: plan.privilegedRemovalAppleScript
+      source: plan.privilegedRemovalAppleScript(
+        waitingForProcessIdentifier: 4321
+      )
     )
     var error: NSDictionary?
 

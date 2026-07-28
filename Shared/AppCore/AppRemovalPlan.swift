@@ -108,7 +108,40 @@ public struct AppRemovalPlan: Sendable {
       == installedApplicationURL.standardizedFileURL
   }
 
-  public var privilegedRemovalCommand: String {
+  public func privilegedRemovalCommand(
+    waitingForProcessIdentifier processIdentifier: Int32
+  ) -> String {
+    let deferredCleanup = deferredRemovalCommand(
+      waitingForProcessIdentifier: processIdentifier
+    )
+    return
+      "/usr/bin/nohup /bin/sh -c "
+      + Self.shellQuote(deferredCleanup)
+      + " </dev/null >/dev/null 2>&1 &"
+  }
+
+  func deferredRemovalCommand(
+    waitingForProcessIdentifier processIdentifier: Int32
+  ) -> String {
+    return
+      "while /bin/kill -0 \(processIdentifier)"
+      + " >/dev/null 2>&1;"
+      + " do /bin/sleep 0.1; done; "
+      + cleanupCommand
+  }
+
+  public func privilegedRemovalAppleScript(
+    waitingForProcessIdentifier processIdentifier: Int32
+  ) -> String {
+    let command = privilegedRemovalCommand(
+      waitingForProcessIdentifier: processIdentifier
+    )
+    return
+      "do shell script \(Self.appleScriptQuote(command))"
+      + " with administrator privileges"
+  }
+
+  private var cleanupCommand: String {
     let desktopShortcut = Self.shellQuote(
       desktopShortcutURL.path
     )
@@ -133,10 +166,6 @@ public struct AppRemovalPlan: Sendable {
           + Self.shellQuote(packageReceiptIdentifier)
           + " >/dev/null 2>&1 || true",
       ]).joined(separator: "; ")
-  }
-
-  public var privilegedRemovalAppleScript: String {
-    "do shell script \(Self.appleScriptQuote(privilegedRemovalCommand)) with administrator privileges"
   }
 
   private static func shellQuote(_ value: String) -> String {

@@ -70,6 +70,16 @@ if /usr/bin/grep -q \
   fail "normal proxy activation can still start uninstall cleanup"
 fi
 
+/usr/bin/grep -q \
+  'ProcessInfo.processInfo.processIdentifier' \
+  "${project_dir}/App/AppUninstaller.swift" \
+  || fail "self-removal does not wait for the uninstall process to exit"
+
+/usr/bin/grep -q \
+  'AppUninstallRecoveryPolicy.shouldRestoreRuntime' \
+  "${project_dir}/App/AppDelegate.swift" \
+  || fail "failed cleanup can still reactivate a removed extension"
+
 scheme_build_block="$(
   /usr/bin/awk '
     /^    build:$/ { in_build = 1 }
