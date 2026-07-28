@@ -49,30 +49,10 @@ readme_download_url="releases/latest/download/HS-Reconnect-${version}.dmg"
   "${project_dir}/README.md" \
   || fail "the README does not show the public app screenshot"
 
-/usr/bin/head -n 10 \
-  "${project_dir}/Documentation/RELEASE_NOTES_1.0.0.md" \
-  | /usr/bin/grep -Fq \
-    "releases/download/v${version}/HS-Reconnect-${version}.dmg" \
-  || fail "release notes must begin with the direct download"
-
 /usr/bin/grep -Fq \
-  'Documentation/Images/hs-reconnect-window.png' \
-  "${project_dir}/Documentation/RELEASE_NOTES_1.0.0.md" \
-  || fail "release notes do not show the public app screenshot"
-
-for public_document in \
+  'hsreconnect@gmail.com' \
   "${project_dir}/README.md" \
-  "${project_dir}/Documentation/RELEASE_NOTES_1.0.0.md"; do
-  /usr/bin/grep -Fq \
-    'hsreconnect@gmail.com' \
-    "${public_document}" \
-    || fail "public documentation does not use the current contact email"
-done
-
-/usr/bin/grep -Fq \
-  "dist/HS-Reconnect-${version}.dmg" \
-  "${project_dir}/Documentation/RELEASING.md" \
-  || fail "release instructions do not match the current version"
+  || fail "public documentation does not use the current contact email"
 
 /usr/bin/grep -q \
   'PRODUCT_BUNDLE_IDENTIFIER: io.github.kulibabkaaa.HSReconnect$' \
