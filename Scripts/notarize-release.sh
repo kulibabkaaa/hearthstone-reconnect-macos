@@ -33,14 +33,14 @@ case "${mode}" in
         --output-format json
     )"
     print -r -- "${info}"
-    status="$(
+    submission_status="$(
       print -r -- "${info}" \
         | plutil -extract status raw -o - -
     )"
-    [[ "${status}" == "Accepted" ]] || {
-      [[ "${status}" == "In Progress" ]] \
+    [[ "${submission_status}" == "Accepted" ]] || {
+      [[ "${submission_status}" == "In Progress" ]] \
         && echo "Apple is still processing the disk image." >&2
-      [[ "${status}" != "In Progress" ]] \
+      [[ "${submission_status}" != "In Progress" ]] \
         && xcrun notarytool log "${submission_id}" \
           --keychain-profile "${profile}" \
         || true
