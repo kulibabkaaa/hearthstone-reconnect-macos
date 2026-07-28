@@ -112,8 +112,7 @@ Scripts/build-local.sh
 ```
 
 Public builds require Developer ID Application and Developer ID Installer
-certificates, Network Extension provisioning, and Apple notarization. See
-[Documentation/RELEASING.md](Documentation/RELEASING.md).
+certificates, Network Extension provisioning, and Apple notarization.
 
 ## Support
 
