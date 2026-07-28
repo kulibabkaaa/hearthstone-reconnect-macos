@@ -60,6 +60,15 @@ readme_download_url="releases/latest/download/HS-Reconnect-${version}.dmg"
   "${project_dir}/Documentation/RELEASE_NOTES_1.0.0.md" \
   || fail "release notes do not show the public app screenshot"
 
+for public_document in \
+  "${project_dir}/README.md" \
+  "${project_dir}/Documentation/RELEASE_NOTES_1.0.0.md"; do
+  /usr/bin/grep -Fq \
+    'hsreconnect@gmail.com' \
+    "${public_document}" \
+    || fail "public documentation does not use the current contact email"
+done
+
 /usr/bin/grep -Fq \
   "dist/HS-Reconnect-${version}.dmg" \
   "${project_dir}/Documentation/RELEASING.md" \

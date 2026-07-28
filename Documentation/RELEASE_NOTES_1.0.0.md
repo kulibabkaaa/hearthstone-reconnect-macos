@@ -48,7 +48,7 @@ SHA-256:
 
 Read the [installation guide](https://github.com/kulibabkaaa/hearthstone-reconnect-macos#install),
 [report a problem](https://github.com/kulibabkaaa/hearthstone-reconnect-macos/issues),
-or email `kulibabagood@gmail.com`.
+or email `hsreconnect@gmail.com`.
 
 HS Reconnect is unofficial and is not affiliated with Blizzard Entertainment.
 Use it at your own risk. Game behavior and policies may change.

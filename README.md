@@ -119,7 +119,7 @@ certificates, Network Extension provisioning, and Apple notarization. See
 ## Support
 
 Found a problem? [Open an issue](https://github.com/kulibabkaaa/hearthstone-reconnect-macos/issues)
-or email `kulibabagood@gmail.com`.
+or email `hsreconnect@gmail.com`.
 
 ## Disclaimer
 
