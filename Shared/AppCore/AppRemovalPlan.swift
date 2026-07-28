@@ -109,14 +109,26 @@ public struct AppRemovalPlan: Sendable {
   }
 
   public var privilegedRemovalCommand: String {
+    let desktopShortcut = Self.shellQuote(
+      desktopShortcutURL.path
+    )
+    let installedApplication = Self.shellQuote(
+      installedApplicationURL.path
+    )
+    let desktopShortcutCommand =
+      "if [ -L \(desktopShortcut) ]"
+      + " && [ \"$(/usr/bin/readlink \(desktopShortcut))\""
+      + " = \(installedApplication) ];"
+      + " then /bin/rm -f -- \(desktopShortcut); fi"
     let userDataCommands = userDataURLs.map {
       "/bin/rm -rf -- \(Self.shellQuote($0.path))"
         + " >/dev/null 2>&1 || true"
     }
     return
-      (["set -e"] + userDataCommands + [
+      (["set -e", desktopShortcutCommand]
+      + userDataCommands + [
         "/bin/rm -rf -- "
-          + Self.shellQuote(installedApplicationURL.path),
+          + installedApplication,
         "/usr/sbin/pkgutil --forget "
           + Self.shellQuote(packageReceiptIdentifier)
           + " >/dev/null 2>&1 || true",
