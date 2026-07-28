@@ -10,7 +10,6 @@
 
 <p align="center">
   <a href="https://github.com/kulibabkaaa/hearthstone-reconnect-macos/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/kulibabkaaa/hearthstone-reconnect-macos?style=flat-square"></a>
-  <a href="https://github.com/kulibabkaaa/hearthstone-reconnect-macos/actions/workflows/ci.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/kulibabkaaa/hearthstone-reconnect-macos/ci.yml?branch=main&style=flat-square&label=tests"></a>
   <img alt="macOS 13 or later" src="https://img.shields.io/badge/macOS-13%2B-111111?style=flat-square&logo=apple">
   <img alt="Apple silicon and Intel" src="https://img.shields.io/badge/Mac-Apple%20silicon%20%2B%20Intel-111111?style=flat-square">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square"></a>
