@@ -1,0 +1,164 @@
+name: HSReconnect
+
+options:
+  minimumXcodeGenVersion: 2.44.0
+  deploymentTarget:
+    macOS: "13.0"
+  groupSortPosition: top
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: D8KUYWS8JN
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    ARCHS: "$(ARCHS_STANDARD)"
+    ONLY_ACTIVE_ARCH: NO
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 1.0.0
+    CLANG_ENABLE_MODULES: YES
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  ProxyCore:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Shared/ProxyCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.kulibabkaaa.HSReconnect.ProxyCore
+        PRODUCT_NAME: ProxyCore
+        SKIP_INSTALL: YES
+
+  ProxyCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/ProxyCoreTests
+    dependencies:
+      - target: ProxyCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.kulibabkaaa.HSReconnect.ProxyCoreTests
+        CODE_SIGNING_ALLOWED: NO
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+  HSReconnectWatcher:
+    type: application
+    platform: macOS
+    productName: HS Reconnect Watcher
+    sources:
+      - path: Watcher
+    info:
+      path: Watcher/Info.plist
+      properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSApplicationCategoryType: public.app-category.utilities
+        LSBackgroundOnly: true
+        LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
+        NSPrincipalClass: NSApplication
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.kulibabkaaa.HSReconnect.Watcher
+        PRODUCT_NAME: HS Reconnect Watcher
+        INFOPLIST_FILE: Watcher/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Watcher/Watcher.entitlements
+        SKIP_INSTALL: YES
+
+  HSReconnectExtension:
+    type: system-extension
+    platform: macOS
+    productName: io.github.kulibabkaaa.HSReconnect.ProxyExtension
+    sources:
+      - path: Extension
+      - path: Shared/ProxyCore
+    info:
+      path: Extension/Info.plist
+      properties:
+        CFBundlePackageType: SYSX
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
+        NetworkExtension:
+          NEMachServiceName: "$(TeamIdentifierPrefix)io.github.kulibabkaaa.HSReconnect.ProxyExtension"
+          NEProviderClasses:
+            com.apple.networkextension.app-proxy: "$(PRODUCT_MODULE_NAME).TransparentProxyProvider"
+        NSSystemExtensionUsageDescription: Routes only native Hearthstone game traffic through a local pass-through connection so it can be closed immediately when you reconnect.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.kulibabkaaa.HSReconnect.ProxyExtension
+        PRODUCT_NAME: io.github.kulibabkaaa.HSReconnect.ProxyExtension
+        PRODUCT_MODULE_NAME: HSReconnectExtension
+        INFOPLIST_FILE: Extension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extension/ProxyExtension.entitlements
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - sdk: NetworkExtension.framework
+      - sdk: Network.framework
+
+  HSReconnect:
+    type: application
+    platform: macOS
+    productName: HS Reconnect
+    sources:
+      - path: App
+      - path: Shared/ProxyCore
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: HS Reconnect
+        CFBundleIconName: AppIcon
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
+        NSHighResolutionCapable: true
+        NSHumanReadableCopyright: Copyright © 2026 kulibabkaaa
+        NSPrincipalClass: NSApplication
+        NSSystemExtensionUsageDescription: HS Reconnect uses a local network extension to reconnect your current Battlegrounds game.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.kulibabkaaa.HSReconnect
+        PRODUCT_NAME: HS Reconnect
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/HSReconnect.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - target: HSReconnectExtension
+        embed: true
+      - target: HSReconnectWatcher
+        embed: false
+    preBuildScripts:
+      - name: Embed Hearthstone watcher
+        basedOnDependencyAnalysis: true
+        inputFiles:
+          - "$(BUILT_PRODUCTS_DIR)/HS Reconnect Watcher.app/Contents/Info.plist"
+        outputFiles:
+          - "$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Library/LoginItems/HS Reconnect Watcher.app/Contents/Info.plist"
+        script: |
+          set -euo pipefail
+          source_app="${BUILT_PRODUCTS_DIR}/HS Reconnect Watcher.app"
+          destination="${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/Library/LoginItems"
+          mkdir -p "${destination}"
+          ditto "${source_app}" "${destination}/HS Reconnect Watcher.app"
+
+schemes:
+  HSReconnect:
+    build:
+      targets:
+        HSReconnect: all
+        HSReconnectExtension: all
+        HSReconnectWatcher: all
+    test:
+      config: Debug
+      targets:
+        - ProxyCoreTests
+    run:
+      config: Debug
+    archive:
+      config: Release

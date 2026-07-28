@@ -1,88 +1,42 @@
 # Releasing HS Reconnect
 
-Version 1.0.0 is a manual release. Do not publish it until the live reconnect
-test has passed.
+Version 1.0.0 is distributed directly from GitHub as a notarized installer.
 
-## Prerequisites
+## Requirements
 
-- Xcode command-line tools
-- Developer ID Application certificate in the login Keychain
-- Developer ID Installer certificate in the login Keychain
-- Apple Developer Team ID `D8KUYWS8JN`
-- A `notarytool` Keychain profile
+- Xcode and XcodeGen
+- Developer ID Application certificate
+- Developer ID Installer certificate
+- Developer ID provisioning profiles for the host and Network Extension
+- A valid `notarytool` Keychain profile named `HSReconnect-Notary`
 
-Signing credentials stay in the macOS Keychain. They are not stored in this
-repository.
+Signing credentials remain in the macOS Keychain and are never committed.
 
-Create the notary profile once:
+## Build
 
 ```sh
-xcrun notarytool store-credentials "HSReconnect-Notary" \
-  --apple-id "APPLE_ID" \
-  --team-id "D8KUYWS8JN"
+Scripts/build-release.sh
 ```
 
-Enter the app-specific password when prompted. Do not put it in a script or
-commit it.
-
-## Test
-
-Run the source and release checks without triggering a reconnect:
-
-```sh
-Scripts/verify_release.sh
-```
-
-Then test the installer, app launch, shortcut recording, menu, Hearthstone
-auto-open setting, and uninstaller on both Apple silicon and Intel hardware or
-clean virtual machines.
-
-The final live reconnect test is performed manually by the project owner.
-
-## Sign and package
-
-Find the exact certificate names:
-
-```sh
-security find-identity -v -p codesigning
-security find-identity -v -p basic
-```
-
-Build the signed package:
-
-```sh
-APP_SIGNING_IDENTITY="Developer ID Application: NAME (D8KUYWS8JN)" \
-INSTALLER_SIGNING_IDENTITY="Developer ID Installer: NAME (D8KUYWS8JN)" \
-Scripts/build_package.sh
-```
-
-Verify that `pkgutil --check-signature` reports the expected Developer ID
-Installer identity.
+The release builder runs all tests, archives the universal app, applies the
+Developer ID system-extension entitlements and profiles, creates a fixed-location
+installer, and verifies every embedded signature. Xcode 26 requires this manual
+Developer ID export step for Network Extension system extensions.
 
 ## Notarize
 
 ```sh
-NOTARY_PROFILE="HSReconnect-Notary" \
-Scripts/notarize.sh submit dist/HS-Reconnect-1.0.0.pkg
+Scripts/notarize-release.sh submit
+Scripts/notarize-release.sh finish \
+  dist/HS-Reconnect-1.0.0.pkg SUBMISSION_ID
 ```
 
-Save the submission ID printed by Apple. The command returns immediately and
-does not poll. After the submission is accepted, finish it:
+The finish step staples Apple's ticket and verifies Gatekeeper acceptance.
+
+## Verify
 
 ```sh
-NOTARY_PROFILE="HSReconnect-Notary" \
-Scripts/notarize.sh finish "SUBMISSION_ID" dist/HS-Reconnect-1.0.0.pkg
+Scripts/verify-release.sh dist/HS-Reconnect-1.0.0.pkg
 ```
 
-The finish command checks the submission once, then staples the ticket,
-validates it, and runs Gatekeeper's installer assessment. If Apple is still
-processing it, the command exits without polling.
-
-## Draft release
-
-1. Confirm `swift test` and the GitHub `tests` check pass.
-2. Confirm the signed and notarized package installs only on macOS 13 or later.
-3. Confirm the installed helper matches the helper embedded in the app.
-4. Complete the project owner's live reconnect test.
-5. Attach `dist/HS-Reconnect-1.0.0.pkg` to the existing draft GitHub release.
-6. Publish the draft only after all checks pass.
+Only the verified, stapled package is attached to the GitHub v1.0.0 release.

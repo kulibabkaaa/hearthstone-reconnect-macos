@@ -2,15 +2,12 @@
 
 HS Reconnect does not collect or transmit personal data.
 
-The app contains no analytics, telemetry, advertising, tracking, or remote crash
-reporting. It does not contact a project server.
+The app contains no analytics, telemetry, advertising, tracking, remote crash
+reporting, or project-server connection.
 
-For local troubleshooting, HS Reconnect writes diagnostic logs to:
+To identify the current Battlegrounds connection, the app reads Hearthstone's
+local game log. Its Network Extension passes native Hearthstone game traffic
+through unchanged and does not inspect or store the traffic contents.
 
-```text
-~/Library/Logs/HS Reconnect/
-```
-
-Network addresses are redacted before log entries are written. Log files older
-than seven days are automatically removed. Uninstalling HS Reconnect with the
-included uninstaller also removes these logs.
+HS Reconnect preferences remain on the Mac in the standard macOS preferences
+store.
