@@ -125,7 +125,11 @@ final class SettingsWindowController: NSWindowController {
     uninstallButton.target = self
     uninstallButton.action = #selector(uninstall)
     uninstallButton.bezelStyle = .rounded
-    uninstallButton.bezelColor = .systemRed
+    uninstallButton.bezelColor =
+      NSColor.systemRed.blended(
+        withFraction: 0.16,
+        of: .windowBackgroundColor
+      ) ?? .systemRed
     uninstallButton.contentTintColor = .white
     uninstallButton.hasDestructiveAction = true
     uninstallButton.setAccessibilityLabel(

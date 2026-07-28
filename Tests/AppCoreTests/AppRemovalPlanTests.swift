@@ -112,6 +112,39 @@ struct AppRemovalPlanTests {
     )
   }
 
+  @Test("privileged removal deletes the owned Desktop symlink first")
+  func privilegedCommandRemovesDesktopShortcutFirst() {
+    let plan = AppRemovalPlan(homeDirectory: home)
+    let command = plan.privilegedRemovalCommand
+    let shortcutPath =
+      "'/Users/Test Person/Desktop/HS Reconnect.app'"
+    let shortcutRemoval =
+      "/bin/rm -f -- \(shortcutPath)"
+    let appRemoval =
+      "/bin/rm -rf -- '/Applications/HS Reconnect.app'"
+
+    #expect(
+      command.contains(
+        "[ -L \(shortcutPath) ]"
+      )
+    )
+    #expect(
+      command.contains(
+        "[ \"$(/usr/bin/readlink \(shortcutPath))\" = '/Applications/HS Reconnect.app' ]"
+      )
+    )
+
+    let shortcutRange = command.range(of: shortcutRemoval)
+    let appRange = command.range(of: appRemoval)
+    #expect(shortcutRange != nil)
+    #expect(appRange != nil)
+    if let shortcutRange, let appRange {
+      #expect(
+        shortcutRange.lowerBound < appRange.lowerBound
+      )
+    }
+  }
+
   @Test("AppleScript wraps the fixed command without interpolation")
   func privilegedAppleScriptIsEscaped() {
     let plan = AppRemovalPlan(homeDirectory: home)
