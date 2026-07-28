@@ -14,6 +14,10 @@ fail() {
   || fail "the public release builder is missing"
 [[ -f "${project_dir}/Scripts/export-developer-id.sh" ]] \
   || fail "the Developer ID system-extension exporter is missing"
+[[ -f "${project_dir}/Scripts/create-release-dmg.sh" ]] \
+  || fail "the signed GitHub Release DMG builder is missing"
+[[ -f "${project_dir}/Scripts/verify-dmg-contents.sh" ]] \
+  || fail "the release DMG content verifier is missing"
 [[ -f "${project_dir}/Extension/ProxyExtension.entitlements" ]] \
   || fail "the transparent-proxy extension is missing"
 [[ -f "${project_dir}/Scripts/Installer/postinstall" ]] \
@@ -84,5 +88,40 @@ fi
   '/private/tmp/hs-reconnect-release' \
   "${project_dir}/Scripts/build-release.sh" \
   || fail "release signing still runs inside file-provider managed storage"
+
+/usr/bin/grep -q \
+  'create-release-dmg.sh' \
+  "${project_dir}/Scripts/build-release.sh" \
+  || fail "the release build does not create the downloadable DMG"
+
+/usr/bin/grep -q \
+  'hdiutil create' \
+  "${project_dir}/Scripts/create-release-dmg.sh" \
+  || fail "the DMG builder does not create a disk image"
+
+/usr/bin/grep -q \
+  -- '-format UDZO' \
+  "${project_dir}/Scripts/create-release-dmg.sh" \
+  || fail "the release DMG must use Apple's read-only UDZO format"
+
+/usr/bin/grep -q \
+  'io.github.kulibabkaaa.HSReconnect.dmg' \
+  "${project_dir}/Scripts/create-release-dmg.sh" \
+  || fail "the release DMG does not have a unique signing identifier"
+
+/usr/bin/grep -q \
+  'verify-dmg-contents.sh' \
+  "${project_dir}/Scripts/build-release.sh" \
+  || fail "the release build does not inspect the completed DMG"
+
+/usr/bin/grep -q \
+  'HS-Reconnect-${version}.dmg' \
+  "${project_dir}/Scripts/notarize-release.sh" \
+  || fail "notarization does not target the outer release DMG"
+
+/usr/bin/grep -q \
+  'download_count' \
+  "${project_dir}/README.md" \
+  || fail "the privacy-preserving GitHub download count is not documented"
 
 echo "Release identity tests passed."

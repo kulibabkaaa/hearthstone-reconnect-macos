@@ -1,6 +1,7 @@
 # Releasing HS Reconnect
 
-Version 1.0.0 is distributed directly from GitHub as a notarized installer.
+Version 1.0.0 is distributed directly from GitHub as a notarized, signed DMG
+containing the signed installer.
 
 ## Requirements
 
@@ -20,15 +21,16 @@ Scripts/build-release.sh
 
 The release builder runs all tests, archives the universal app, applies the
 Developer ID system-extension entitlements and profiles, creates a fixed-location
-installer, and verifies every embedded signature. Xcode 26 requires this manual
-Developer ID export step for Network Extension system extensions.
+installer, places it in a read-only UDZO disk image, signs that DMG, and verifies
+the mounted result. Xcode 26 requires this manual Developer ID export step for
+Network Extension system extensions.
 
 ## Notarize
 
 ```sh
 Scripts/notarize-release.sh submit
 Scripts/notarize-release.sh finish \
-  dist/HS-Reconnect-1.0.0.pkg SUBMISSION_ID
+  dist/HS-Reconnect-1.0.0.dmg SUBMISSION_ID
 ```
 
 The finish step staples Apple's ticket and verifies Gatekeeper acceptance.
@@ -36,7 +38,9 @@ The finish step staples Apple's ticket and verifies Gatekeeper acceptance.
 ## Verify
 
 ```sh
-Scripts/verify-release.sh dist/HS-Reconnect-1.0.0.pkg
+Scripts/verify-release.sh dist/HS-Reconnect-1.0.0.dmg
 ```
 
-Only the verified, stapled package is attached to the GitHub v1.0.0 release.
+Only the verified, stapled DMG is attached to the GitHub v1.0.0 release. GitHub
+exposes that asset's cumulative `download_count` through its Releases API. This
+counts asset downloads without adding analytics to the app.

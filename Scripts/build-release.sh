@@ -15,6 +15,7 @@ package_scripts="${build_root}/installer-scripts"
 expanded_package="${build_root}/expanded-package"
 output_dir="${project_dir}/dist"
 output_package="${output_dir}/HS-Reconnect-${version}.pkg"
+output_dmg="${output_dir}/HS-Reconnect-${version}.dmg"
 exported_app="${export_path}/HS Reconnect.app"
 
 installer_identity="${INSTALLER_SIGNING_IDENTITY:-$(
@@ -123,4 +124,10 @@ pkgutil --expand-full "${output_package}" "${expanded_package}"
 codesign --verify --deep --strict --verbose=2 \
   "${expanded_package}/Payload/Applications/HS Reconnect.app"
 
-echo "${output_package}"
+"${script_dir}/create-release-dmg.sh" \
+  "${output_package}" \
+  "${output_dmg}"
+"${script_dir}/verify-dmg-contents.sh" \
+  "${output_dmg}"
+
+echo "${output_dmg}"
