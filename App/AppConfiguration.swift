@@ -2,13 +2,13 @@ import Carbon
 import Foundation
 
 enum AppConfiguration {
-  static let appName = "HS Reconnect"
+  static let appName = AppIdentity.appName
   static let bundleIdentifier =
-    "io.github.kulibabkaaa.HSReconnect"
+    AppIdentity.bundleIdentifier
   static let extensionBundleIdentifier =
-    "io.github.kulibabkaaa.HSReconnect.ProxyExtension"
+    AppIdentity.extensionBundleIdentifier
   static let watcherBundleIdentifier =
-    "io.github.kulibabkaaa.HSReconnect.Watcher"
+    AppIdentity.watcherBundleIdentifier
   static let defaultShortcutKeyCode = UInt32(kVK_ANSI_W)
   static let defaultShortcutDisplay = "Cmd+Shift+W"
   static let openWithHearthstoneByDefault = true

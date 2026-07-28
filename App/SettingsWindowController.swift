@@ -6,6 +6,7 @@ final class SettingsWindowController: NSWindowController {
   private let onShortcutRecordingChanged: (Bool) -> Void
   private let onOpenWithHearthstoneChanged: (Bool) -> Result<Void, Error>
   private let onShowInDockChanged: (Bool, @escaping (Bool) -> Void) -> Void
+  private let onUninstall: () -> Void
 
   private let statusLabel = NSTextField(
     wrappingLabelWithString: "Preparing the local proxy…"
@@ -31,13 +32,19 @@ final class SettingsWindowController: NSWindowController {
     target: nil,
     action: nil
   )
+  private let uninstallButton = NSButton(
+    title: "Uninstall",
+    target: nil,
+    action: nil
+  )
 
   init(
     onReconnect: @escaping () -> Void,
     onShortcutChanged: @escaping (UInt32, UInt32, String) -> Bool,
     onShortcutRecordingChanged: @escaping (Bool) -> Void,
     onOpenWithHearthstoneChanged: @escaping (Bool) -> Result<Void, Error>,
-    onShowInDockChanged: @escaping (Bool, @escaping (Bool) -> Void) -> Void
+    onShowInDockChanged: @escaping (Bool, @escaping (Bool) -> Void) -> Void,
+    onUninstall: @escaping () -> Void
   ) {
     self.onReconnect = onReconnect
     self.onShortcutChanged = onShortcutChanged
@@ -46,6 +53,7 @@ final class SettingsWindowController: NSWindowController {
     self.onOpenWithHearthstoneChanged =
       onOpenWithHearthstoneChanged
     self.onShowInDockChanged = onShowInDockChanged
+    self.onUninstall = onUninstall
 
     let window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 470, height: 340),
@@ -96,6 +104,16 @@ final class SettingsWindowController: NSWindowController {
     reconnectButton.isEnabled = enabled
   }
 
+  func setUninstalling(_ uninstalling: Bool) {
+    uninstallButton.title =
+      uninstalling ? "Uninstalling…" : "Uninstall"
+    uninstallButton.isEnabled = !uninstalling
+    shortcutButton.isEnabled = !uninstalling
+    openWithHearthstoneCheckbox.isEnabled = !uninstalling
+    showInDockCheckbox.isEnabled = !uninstalling
+    reconnectButton.isEnabled = !uninstalling
+  }
+
   private func buildInterface() {
     guard let contentView = window?.contentView else { return }
 
@@ -103,6 +121,28 @@ final class SettingsWindowController: NSWindowController {
       labelWithString: AppConfiguration.appName
     )
     title.font = .systemFont(ofSize: 22, weight: .semibold)
+
+    uninstallButton.target = self
+    uninstallButton.action = #selector(uninstall)
+    uninstallButton.bezelStyle = .rounded
+    uninstallButton.bezelColor = .systemRed
+    uninstallButton.contentTintColor = .white
+    uninstallButton.hasDestructiveAction = true
+    uninstallButton.setAccessibilityLabel(
+      "Uninstall HS Reconnect"
+    )
+
+    let titleSpacer = NSView()
+    titleSpacer.setContentHuggingPriority(
+      .defaultLow,
+      for: .horizontal
+    )
+    let titleRow = NSStackView(
+      views: [title, titleSpacer, uninstallButton]
+    )
+    titleRow.orientation = .horizontal
+    titleRow.alignment = .centerY
+    titleRow.spacing = 12
 
     let description = NSTextField(
       wrappingLabelWithString:
@@ -180,7 +220,7 @@ final class SettingsWindowController: NSWindowController {
 
     let stack = NSStackView(
       views: [
-        title,
+        titleRow,
         description,
         shortcutRow,
         openWithHearthstoneCheckbox,
@@ -215,6 +255,9 @@ final class SettingsWindowController: NSWindowController {
       shortcutRow.widthAnchor.constraint(
         equalTo: stack.widthAnchor
       ),
+      titleRow.widthAnchor.constraint(
+        equalTo: stack.widthAnchor
+      ),
       reconnectButton.widthAnchor.constraint(
         equalTo: stack.widthAnchor
       ),
@@ -223,6 +266,10 @@ final class SettingsWindowController: NSWindowController {
 
   @objc private func reconnectNow() {
     onReconnect()
+  }
+
+  @objc private func uninstall() {
+    onUninstall()
   }
 
   @objc private func openWithHearthstoneChanged() {
