@@ -88,12 +88,16 @@ ditto --norsrc --noextattr \
   "${exported_app}" \
   "${payload_root}/Applications/HS Reconnect.app"
 ditto --norsrc --noextattr \
+  "${script_dir}/Installer/preinstall" \
+  "${package_scripts}/preinstall"
+ditto --norsrc --noextattr \
   "${script_dir}/Installer/postinstall" \
   "${package_scripts}/postinstall"
 ditto --norsrc --noextattr \
   "${script_dir}/Installer/create-desktop-shortcut.sh" \
   "${package_scripts}/create-desktop-shortcut.sh"
 chmod 755 \
+  "${package_scripts}/preinstall" \
   "${package_scripts}/postinstall" \
   "${package_scripts}/create-desktop-shortcut.sh"
 

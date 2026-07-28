@@ -16,7 +16,7 @@ Command-Shift-W, and it can be changed in the app.
 
 ## Install
 
-1. Download `HS-Reconnect-1.0.1.dmg` from the latest GitHub release.
+1. Download `HS-Reconnect-1.0.2.dmg` from the latest GitHub release.
 2. Open the disk image, then open `Install HS Reconnect.pkg`.
 3. Approve the installation.
 4. Open HS Reconnect from Applications or its Desktop shortcut.

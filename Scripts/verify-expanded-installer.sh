@@ -33,6 +33,11 @@ fi
   exit 1
 }
 
+[[ -x "${installer_scripts}/preinstall" ]] || {
+  echo "Installer preinstall script is missing." >&2
+  exit 1
+}
+
 [[ -x "${installer_scripts}/create-desktop-shortcut.sh" ]] || {
   echo "Desktop shortcut script is missing." >&2
   exit 1

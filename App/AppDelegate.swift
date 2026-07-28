@@ -1,7 +1,7 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-  private let launchedForHearthstone: Bool
+  private let launchMode: AppLaunchMode
   private let hotKeyManager = GlobalHotKeyManager()
   private let autoLaunchController = AutoLaunchController()
   private let dockVisibilityController =
@@ -24,14 +24,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var isRecordingShortcut = false
   private var isReconnectRunning = false
   private var isProxyReady = false
-  private var isPreparingProxy = false
   private var userOpenedWindow = false
   private var isUninstalling = false
   private var isUninstallCleanupStarted = false
   private var restoreAutoLaunchAfterFailedUninstall = false
 
-  init(launchedForHearthstone: Bool) {
-    self.launchedForHearthstone = launchedForHearthstone
+  private var launchedForHearthstone: Bool {
+    launchMode.launchedForHearthstone
+  }
+
+  init(launchMode: AppLaunchMode) {
+    self.launchMode = launchMode
     super.init()
   }
 
@@ -44,22 +47,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     buildMainMenu()
     buildMenuBar()
     buildWindow()
-    registerStoredHotKey()
-    observeHearthstoneTermination()
-    prepareProxy()
+    configureSystemExtensionStatusHandlers()
 
-    if !launchedForHearthstone {
+    if let processIdentifier =
+      launchMode.uninstallProcessIdentifier
+    {
       showWindow()
-      _ = autoLaunchController.configureDefaultIfNeeded()
-      windowController.refresh()
-    }
+      resumeUninstall(
+        waitingForProcessIdentifier: processIdentifier
+      )
+    } else {
+      registerStoredHotKey()
+      observeHearthstoneTermination()
+      prepareProxy()
 
-    updateReconnectAvailability()
-    cooldownTimer = Timer.scheduledTimer(
-      withTimeInterval: 0.5,
-      repeats: true
-    ) { [weak self] _ in
-      self?.updateReconnectAvailability()
+      if !launchedForHearthstone {
+        showWindow()
+        _ = autoLaunchController.configureDefaultIfNeeded()
+        windowController.refresh()
+      }
+
+      updateReconnectAvailability()
+      startCooldownTimerIfNeeded()
     }
   }
 
@@ -194,11 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     statusItem.menu = menu
   }
 
-  private func prepareProxy() {
-    isProxyReady = false
-    windowController.setStatus(
-      "Getting ready…"
-    )
+  private func configureSystemExtensionStatusHandlers() {
     systemExtensionController.onApprovalRequired = {
       [weak self] in
       self?.windowController.setStatus(
@@ -211,6 +216,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         "Approve removing HS Reconnect in System Settings, then return here."
       )
     }
+  }
+
+  private func prepareProxy() {
+    isProxyReady = false
+    windowController.setStatus(
+      "Getting ready…"
+    )
     systemExtensionController.activate { [weak self] result in
       guard let self else { return }
       guard !self.isUninstalling else { return }
@@ -225,12 +237,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           "Restart your Mac once, then open HS Reconnect again."
         )
       case .success(.activated):
-        self.isPreparingProxy = true
         self.proxyController.prepare { [weak self] prepareResult in
           guard let self else { return }
-          self.isPreparingProxy = false
           if self.isUninstalling {
-            self.beginUninstallCleanup()
             return
           }
           switch prepareResult {
@@ -348,6 +357,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       isProxyReady && !isReconnectRunning && remaining <= 0
     reconnectMenuItem?.isEnabled = enabled
     windowController?.setReconnectEnabled(enabled)
+  }
+
+  private func startCooldownTimerIfNeeded() {
+    guard cooldownTimer == nil else { return }
+    cooldownTimer = Timer.scheduledTimer(
+      withTimeInterval: 0.5,
+      repeats: true
+    ) { [weak self] _ in
+      self?.updateReconnectAvailability()
+    }
   }
 
   private func registerStoredHotKey() {
@@ -471,6 +490,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return
     }
 
+    let proxyWasReady = isProxyReady
+    isUninstalling = true
+    isUninstallCleanupStarted = false
+    isProxyReady = false
+    hotKeyManager.unregister()
+    windowController.setUninstalling(true)
+    windowController.setStatus(
+      "Preparing to uninstall HS Reconnect…"
+    )
+    updateReconnectAvailability()
+
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.arguments = [
+      AppLaunchMode.resumeUninstallArgument,
+      String(ProcessInfo.processInfo.processIdentifier),
+    ]
+    configuration.createsNewApplicationInstance = true
+    configuration.activates = true
+
+    NSWorkspace.shared.openApplication(
+      at: Bundle.main.bundleURL,
+      configuration: configuration
+    ) { [weak self] _, error in
+      DispatchQueue.main.async {
+        guard let self else { return }
+        if error == nil {
+          NSApp.terminate(nil)
+          return
+        }
+
+        self.isUninstalling = false
+        self.isUninstallCleanupStarted = false
+        self.isProxyReady = proxyWasReady
+        self.registerStoredHotKey()
+        self.windowController.setUninstalling(false)
+        self.windowController.setStatus(
+          "HS Reconnect couldn't begin uninstalling. Please try again.",
+          isError: true
+        )
+        self.updateReconnectAvailability()
+      }
+    }
+  }
+
+  private func resumeUninstall(
+    waitingForProcessIdentifier processIdentifier: Int32
+  ) {
     isUninstalling = true
     isUninstallCleanupStarted = false
     restoreAutoLaunchAfterFailedUninstall =
@@ -478,13 +544,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         forKey: DefaultsKey.openWithHearthstone
       )
     isProxyReady = false
-    hotKeyManager.unregister()
     windowController.setUninstalling(true)
     windowController.setStatus("Uninstalling HS Reconnect…")
     updateReconnectAvailability()
+    waitForOriginalProcessToExit(processIdentifier)
+  }
 
-    if !isPreparingProxy {
-      beginUninstallCleanup()
+  private func waitForOriginalProcessToExit(
+    _ processIdentifier: Int32
+  ) {
+    let originalApplication = NSRunningApplication(
+      processIdentifier: processIdentifier
+    )
+    if let originalApplication,
+      originalApplication.bundleIdentifier
+        == AppConfiguration.bundleIdentifier,
+      !originalApplication.isTerminated
+    {
+      DispatchQueue.main.asyncAfter(
+        deadline: .now() + 0.1
+      ) { [weak self] in
+        self?.waitForOriginalProcessToExit(
+          processIdentifier
+        )
+      }
+      return
+    }
+
+    DispatchQueue.main.asyncAfter(
+      deadline: .now() + 0.5
+    ) { [weak self] in
+      self?.beginUninstallCleanup()
     }
   }
 
@@ -514,6 +604,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           isError: true
         )
         self.updateReconnectAvailability()
+        self.startCooldownTimerIfNeeded()
         self.prepareProxy()
       }
     }
