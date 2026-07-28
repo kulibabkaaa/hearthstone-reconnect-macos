@@ -24,6 +24,8 @@ fail() {
   || fail "the installer postinstall script is missing"
 [[ -f "${project_dir}/Scripts/Installer/preinstall" ]] \
   || fail "the installer preinstall script is missing"
+[[ -f "${project_dir}/Documentation/Images/hs-reconnect-window.png" ]] \
+  || fail "the public app screenshot is missing"
 
 version="$(
   /usr/bin/awk '
@@ -41,6 +43,22 @@ readme_download_url="releases/latest/download/HS-Reconnect-${version}.dmg"
 /usr/bin/head -n 40 "${project_dir}/README.md" \
   | /usr/bin/grep -Fq "${readme_download_url}" \
   || fail "the README must put the current direct download near the top"
+
+/usr/bin/grep -Fq \
+  'Documentation/Images/hs-reconnect-window.png' \
+  "${project_dir}/README.md" \
+  || fail "the README does not show the public app screenshot"
+
+/usr/bin/head -n 10 \
+  "${project_dir}/Documentation/RELEASE_NOTES_1.0.0.md" \
+  | /usr/bin/grep -Fq \
+    "releases/download/v${version}/HS-Reconnect-${version}.dmg" \
+  || fail "release notes must begin with the direct download"
+
+/usr/bin/grep -Fq \
+  'Documentation/Images/hs-reconnect-window.png' \
+  "${project_dir}/Documentation/RELEASE_NOTES_1.0.0.md" \
+  || fail "release notes do not show the public app screenshot"
 
 /usr/bin/grep -Fq \
   "dist/HS-Reconnect-${version}.dmg" \

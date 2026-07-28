@@ -24,6 +24,10 @@
   Free, open source, signed with Apple Developer ID, and notarized by Apple.
 </p>
 
+<p align="center">
+  <img src="Documentation/Images/hs-reconnect-window.png" width="760" alt="HS Reconnect window showing the global shortcut, launch options, reconnect button, and uninstall button">
+</p>
+
 ## What it does
 
 Press one global shortcut to reconnect your current native Hearthstone
@@ -32,14 +36,6 @@ inside the app.
 
 HS Reconnect can open quietly with Hearthstone, stay available in the menu bar,
 and show or hide its Dock icon whenever you choose.
-
-## How it works
-
-HS Reconnect uses a local macOS Network Extension that passes native
-Hearthstone game traffic through unchanged. When you reconnect, it closes only
-the current Hearthstone game connection so the game reconnects immediately.
-
-There is no root helper, sudo rule, analytics, advertising, or project server.
 
 ## Requirements
 
@@ -63,6 +59,15 @@ Leave **Open HS Reconnect with Hearthstone** checked to start the app quietly
 with the game. The menu bar and Dock icons are visible by default; turn off
 **Show HS Reconnect in Dock** if you prefer menu-bar-only operation.
 
+## How it works
+
+HS Reconnect uses a local macOS Network Extension that passes native
+Hearthstone game traffic through unchanged. When you reconnect, it closes only
+the current Hearthstone game connection so the game reconnects immediately.
+
+No root helper or sudo rule is installed. No HS Reconnect account or separate
+online service is required.
+
 ## Uninstall
 
 1. Open HS Reconnect and select the red **Uninstall** button.
@@ -77,11 +82,25 @@ HS Reconnect has no analytics, telemetry, advertising, remote crash reporting,
 accounts, or project-server connection. It does not collect or transmit personal
 data. Read the full [privacy statement](PRIVACY.md).
 
-## Download count
-
 GitHub records the cumulative `download_count` for the signed DMG attached to
 each release. This measures release-asset downloads, not installations or active
-users. The app contains no download tracking or analytics.
+users. GitHub maintains this count; the app contains no download tracking.
+
+## FAQ
+
+### Why does macOS ask for Network Extension permission?
+
+The one-time approval lets HS Reconnect handle the native Hearthstone game
+connection locally and close it when you request a reconnect.
+
+### Does it work with Windows or CrossOver?
+
+No. Version 1.0.0 supports only the native macOS version of Hearthstone.
+
+### Does it inspect or save my game traffic?
+
+No. The Network Extension passes Hearthstone traffic through unchanged and
+does not inspect or store its contents.
 
 ## Build from source
 
