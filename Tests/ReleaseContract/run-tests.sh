@@ -124,4 +124,10 @@ fi
   "${project_dir}/README.md" \
   || fail "the privacy-preserving GitHub download count is not documented"
 
+if /usr/bin/grep -Eq \
+  '^[[:space:]]*status=' \
+  "${project_dir}/Scripts/notarize-release.sh"; then
+  fail "the notarization script assigns zsh's read-only status variable"
+fi
+
 echo "Release identity tests passed."
