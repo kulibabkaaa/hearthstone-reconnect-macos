@@ -593,21 +593,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.isUninstalling = false
         self.isUninstallCleanupStarted = false
         self.isReconnectRunning = false
-        if self.restoreAutoLaunchAfterFailedUninstall {
-          _ = self.autoLaunchController.setEnabled(true)
+        let shouldRestoreRuntime =
+          self.shouldRestoreRuntimeAfterFailedUninstall(error)
+        if shouldRestoreRuntime {
+          if self.restoreAutoLaunchAfterFailedUninstall {
+            _ = self.autoLaunchController.setEnabled(true)
+          }
+          self.registerStoredHotKey()
         }
         self.restoreAutoLaunchAfterFailedUninstall = false
-        self.registerStoredHotKey()
         self.windowController.setUninstalling(false)
         self.windowController.setStatus(
           self.uninstallFailureMessage(error),
           isError: true
         )
         self.updateReconnectAvailability()
-        self.startCooldownTimerIfNeeded()
-        self.prepareProxy()
+        if shouldRestoreRuntime {
+          self.startCooldownTimerIfNeeded()
+          self.prepareProxy()
+        }
       }
     }
+  }
+
+  private func shouldRestoreRuntimeAfterFailedUninstall(
+    _ error: Error
+  ) -> Bool {
+    guard let error = error as? AppUninstallerError else {
+      return true
+    }
+    return AppUninstallRecoveryPolicy.shouldRestoreRuntime(
+      after: error.failureStage
+    )
   }
 
   private func uninstallFailureMessage(_ error: Error) -> String {
