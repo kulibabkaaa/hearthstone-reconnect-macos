@@ -8,6 +8,7 @@ Initial public release for native Hearthstone Battlegrounds on macOS.
 - Optional quiet opening with Hearthstone
 - Menu bar and Dock controls
 - Desktop shortcut installed automatically
+- Signed DMG containing the guided installer
 - Apple silicon and Intel support
 - macOS 13 or later
 

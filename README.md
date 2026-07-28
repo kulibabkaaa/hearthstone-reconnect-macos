@@ -16,11 +16,12 @@ Command-Shift-W, and it can be changed in the app.
 
 ## Install
 
-1. Download `HS-Reconnect-1.0.0.pkg` from the latest GitHub release.
-2. Open the installer and approve the installation.
-3. Open HS Reconnect from Applications or its Desktop shortcut.
-4. Approve the system extension and network configuration if macOS asks.
-5. Leave **Open HS Reconnect with Hearthstone** checked if you want it to
+1. Download `HS-Reconnect-1.0.0.dmg` from the latest GitHub release.
+2. Open the disk image, then open `Install HS Reconnect.pkg`.
+3. Approve the installation.
+4. Open HS Reconnect from Applications or its Desktop shortcut.
+5. Approve the system extension and network configuration if macOS asks.
+6. Leave **Open HS Reconnect with Hearthstone** checked if you want it to
    start quietly with the game.
 
 The app shows a menu bar icon and a Dock icon by default. Turn off
@@ -39,6 +40,12 @@ or project server.
 
 HS Reconnect does not collect or transmit personal data. See
 [PRIVACY.md](PRIVACY.md).
+
+## Download count
+
+GitHub records the cumulative `download_count` for the signed DMG attached to
+each release. This measures release-asset downloads, not installations or active
+users. The app contains no download tracking or analytics.
 
 ## Remove
 
