@@ -17,6 +17,18 @@ fail() {
 }
 
 component_plist="${fixture_dir}/components.plist"
+
+[[ -f "${project_dir}/Scripts/Installer/preinstall" ]] \
+  || fail "the installer must stop a running copy before upgrading"
+/usr/bin/grep -q \
+  '/Applications/HS Reconnect.app/Contents/MacOS/HS Reconnect' \
+  "${project_dir}/Scripts/Installer/preinstall" \
+  || fail "the preinstall script must target only HS Reconnect"
+/usr/bin/grep -q \
+  -- '-o args=' \
+  "${project_dir}/Scripts/Installer/preinstall" \
+  || fail "the preinstall script must inspect the complete executable path"
+
 cat > "${component_plist}" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -76,6 +88,7 @@ mkdir -p \
   "${expanded_package}/Payload/Applications/HS Reconnect.app" \
   "${expanded_package}/Scripts"
 cp "${project_dir}/Scripts/Installer/postinstall" \
+  "${project_dir}/Scripts/Installer/preinstall" \
   "${project_dir}/Scripts/Installer/create-desktop-shortcut.sh" \
   "${expanded_package}/Scripts/"
 cat > "${expanded_package}/PackageInfo" <<'PACKAGE_INFO'

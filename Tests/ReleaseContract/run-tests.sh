@@ -22,6 +22,8 @@ fail() {
   || fail "the transparent-proxy extension is missing"
 [[ -f "${project_dir}/Scripts/Installer/postinstall" ]] \
   || fail "the installer postinstall script is missing"
+[[ -f "${project_dir}/Scripts/Installer/preinstall" ]] \
+  || fail "the installer preinstall script is missing"
 
 /usr/bin/grep -q \
   'PRODUCT_BUNDLE_IDENTIFIER: io.github.kulibabkaaa.HSReconnect$' \
@@ -52,6 +54,20 @@ if /usr/bin/grep -q \
   'hsreconnect-helper\|sudoers' \
   "${project_dir}/README.md"; then
   fail "the public documentation still describes the retired helper"
+fi
+
+prepare_proxy_block="$(
+  /usr/bin/awk '
+    /private func prepareProxy\(\)/ { in_prepare = 1 }
+    in_prepare && /private func activationFailureMessage\(\)/ { exit }
+    in_prepare { print }
+  ' "${project_dir}/App/AppDelegate.swift"
+)"
+
+if /usr/bin/grep -q \
+  'beginUninstallCleanup' \
+  <<< "${prepare_proxy_block}"; then
+  fail "normal proxy activation can still start uninstall cleanup"
 fi
 
 scheme_build_block="$(

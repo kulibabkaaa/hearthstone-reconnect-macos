@@ -1,0 +1,36 @@
+#!/bin/zsh
+set -euo pipefail
+
+app_executable="/Applications/HS Reconnect.app/Contents/MacOS/HS Reconnect"
+
+matching_processes() {
+  local process_identifier command
+  for process_identifier in $(
+    /usr/bin/pgrep -x "HS Reconnect" 2>/dev/null || true
+  ); do
+    command="$(
+      /bin/ps -p "${process_identifier}" -o args= 2>/dev/null \
+        || true
+    )"
+    case "${command}" in
+      "${app_executable}" | "${app_executable} "*)
+        print -r -- "${process_identifier}"
+        ;;
+    esac
+  done
+}
+
+for process_identifier in $(matching_processes); do
+  /bin/kill -TERM "${process_identifier}" 2>/dev/null || true
+done
+
+for _ in {1..50}; do
+  [[ -z "$(matching_processes)" ]] && exit 0
+  /bin/sleep 0.1
+done
+
+for process_identifier in $(matching_processes); do
+  /bin/kill -KILL "${process_identifier}" 2>/dev/null || true
+done
+
+exit 0

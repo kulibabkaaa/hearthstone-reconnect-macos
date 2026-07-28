@@ -66,12 +66,16 @@ if [[ -n "${installer_identity}" ]]; then
     "${staged_app}" \
     "${verification_dir}/payload/Applications/HS Reconnect.app"
   ditto --norsrc --noextattr \
+    "${script_dir}/Installer/preinstall" \
+    "${verification_dir}/installer-scripts/preinstall"
+  ditto --norsrc --noextattr \
     "${script_dir}/Installer/postinstall" \
     "${verification_dir}/installer-scripts/postinstall"
   ditto --norsrc --noextattr \
     "${script_dir}/Installer/create-desktop-shortcut.sh" \
     "${verification_dir}/installer-scripts/create-desktop-shortcut.sh"
   chmod 755 \
+    "${verification_dir}/installer-scripts/preinstall" \
     "${verification_dir}/installer-scripts/postinstall" \
     "${verification_dir}/installer-scripts/create-desktop-shortcut.sh"
   pkgbuild \
