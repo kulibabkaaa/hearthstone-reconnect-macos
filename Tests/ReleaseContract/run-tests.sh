@@ -80,6 +80,16 @@ fi
   "${project_dir}/App/AppDelegate.swift" \
   || fail "failed cleanup can still reactivate a removed extension"
 
+/usr/bin/grep -q \
+  'SMAppService.openSystemSettingsLoginItems' \
+  "${project_dir}/App/AppDelegate.swift" \
+  || fail "approval guidance cannot reopen the correct System Settings pane"
+
+/usr/bin/grep -q \
+  'setSystemExtensionApprovalRequired(true)' \
+  "${project_dir}/App/AppDelegate.swift" \
+  || fail "approval guidance is not kept available in the app window"
+
 scheme_build_block="$(
   /usr/bin/awk '
     /^    build:$/ { in_build = 1 }
