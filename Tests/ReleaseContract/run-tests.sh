@@ -25,6 +25,28 @@ fail() {
 [[ -f "${project_dir}/Scripts/Installer/preinstall" ]] \
   || fail "the installer preinstall script is missing"
 
+version="$(
+  /usr/bin/awk '
+    /MARKETING_VERSION:/ {
+      gsub(/"/, "", $2)
+      print $2
+      exit
+    }
+  ' "${project_dir}/project.yml"
+)"
+
+[[ -n "${version}" ]] || fail "the release version is missing"
+
+readme_download_url="releases/latest/download/HS-Reconnect-${version}.dmg"
+/usr/bin/head -n 40 "${project_dir}/README.md" \
+  | /usr/bin/grep -Fq "${readme_download_url}" \
+  || fail "the README must put the current direct download near the top"
+
+/usr/bin/grep -Fq \
+  "dist/HS-Reconnect-${version}.dmg" \
+  "${project_dir}/Documentation/RELEASING.md" \
+  || fail "release instructions do not match the current version"
+
 /usr/bin/grep -q \
   'PRODUCT_BUNDLE_IDENTIFIER: io.github.kulibabkaaa.HSReconnect$' \
   "${project_dir}/project.yml" \

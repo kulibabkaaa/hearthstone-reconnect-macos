@@ -1,12 +1,45 @@
 <p align="center">
-  <img src="Support/AppIconSource.png" width="128" alt="HS Reconnect icon">
+  <img src="Support/AppIconSource.png" width="136" alt="HS Reconnect app icon">
 </p>
 
-# HS Reconnect
+<h1 align="center">HS Reconnect</h1>
 
-HS Reconnect is a small macOS utility for native Hearthstone Battlegrounds.
-Press the global shortcut to trigger an immediate reconnect. The default is
-Command-Shift-W, and it can be changed in the app.
+<p align="center">
+  Instant Battlegrounds reconnects for macOS.
+</p>
+
+<p align="center">
+  <a href="https://github.com/kulibabkaaa/hearthstone-reconnect-macos/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/kulibabkaaa/hearthstone-reconnect-macos?style=flat-square"></a>
+  <a href="https://github.com/kulibabkaaa/hearthstone-reconnect-macos/actions/workflows/ci.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/kulibabkaaa/hearthstone-reconnect-macos/ci.yml?branch=main&style=flat-square&label=tests"></a>
+  <img alt="macOS 13 or later" src="https://img.shields.io/badge/macOS-13%2B-111111?style=flat-square&logo=apple">
+  <img alt="Apple silicon and Intel" src="https://img.shields.io/badge/Mac-Apple%20silicon%20%2B%20Intel-111111?style=flat-square">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square"></a>
+</p>
+
+<h3 align="center">
+  <a href="https://github.com/kulibabkaaa/hearthstone-reconnect-macos/releases/latest/download/HS-Reconnect-1.0.0.dmg">Download HS Reconnect 1.0.0</a>
+</h3>
+
+<p align="center">
+  Free, open source, signed with Apple Developer ID, and notarized by Apple.
+</p>
+
+## What it does
+
+Press one global shortcut to reconnect your current native Hearthstone
+Battlegrounds game. The default is **Command-Shift-W**, and you can change it
+inside the app.
+
+HS Reconnect can open quietly with Hearthstone, stay available in the menu bar,
+and show or hide its Dock icon whenever you choose.
+
+## How it works
+
+HS Reconnect uses a local macOS Network Extension that passes native
+Hearthstone game traffic through unchanged. When you reconnect, it closes only
+the current Hearthstone game connection so the game reconnects immediately.
+
+There is no root helper, sudo rule, analytics, advertising, or project server.
 
 ## Requirements
 
@@ -16,47 +49,39 @@ Command-Shift-W, and it can be changed in the app.
 
 ## Install
 
-1. Download `HS-Reconnect-1.0.4.dmg` from the latest GitHub release.
-2. Open the disk image, then open `Install HS Reconnect.pkg`.
-3. Approve the installation.
-4. Open HS Reconnect from Applications or its Desktop shortcut.
-5. Approve the system extension and network configuration if macOS asks.
-   If you dismiss the approval dialog, reopen HS Reconnect and use
-   **Open System Settings** beside the setup message.
-6. Leave **Open HS Reconnect with Hearthstone** checked if you want it to
-   start quietly with the game.
+1. [Download HS Reconnect 1.0.0](https://github.com/kulibabkaaa/hearthstone-reconnect-macos/releases/latest/download/HS-Reconnect-1.0.0.dmg).
+2. Open the disk image, then open **Install HS Reconnect.pkg**.
+3. Complete the installer and open HS Reconnect from Applications or its
+   Desktop shortcut.
+4. Approve the Network Extension and network configuration when macOS asks.
 
-The app shows a menu bar icon and a Dock icon by default. Turn off
+If you dismiss the first approval message, reopen HS Reconnect and select
+**Open System Settings** beside the setup message. The app keeps that guidance
+available until setup is complete.
+
+Leave **Open HS Reconnect with Hearthstone** checked to start the app quietly
+with the game. The menu bar and Dock icons are visible by default; turn off
 **Show HS Reconnect in Dock** if you prefer menu-bar-only operation.
 
-## How it works
+## Uninstall
 
-HS Reconnect uses a local macOS Network Extension that passes native
-Hearthstone game traffic through unchanged. When you reconnect, it closes only
-the current Hearthstone game connection so the game reconnects immediately.
+1. Open HS Reconnect and select the red **Uninstall** button.
+2. Confirm removal and enter your Mac administrator password.
 
-There is no root helper, sudo rule, traffic redirection, analytics, advertising,
-or project server.
+The uninstaller removes HS Reconnect, its Network Extension, local settings,
+Desktop shortcut, and installer receipt.
 
 ## Privacy
 
-HS Reconnect does not collect or transmit personal data. See
-[PRIVACY.md](PRIVACY.md).
+HS Reconnect has no analytics, telemetry, advertising, remote crash reporting,
+accounts, or project-server connection. It does not collect or transmit personal
+data. Read the full [privacy statement](PRIVACY.md).
 
 ## Download count
 
 GitHub records the cumulative `download_count` for the signed DMG attached to
 each release. This measures release-asset downloads, not installations or active
 users. The app contains no download tracking or analytics.
-
-## Remove
-
-1. Open HS Reconnect and click the red **Uninstall** button.
-2. Confirm removal and enter your Mac administrator password.
-
-The app disables its Hearthstone watcher, removes its local proxy
-configuration and Network Extension, deletes its settings and Desktop shortcut,
-forgets the installer receipt, removes the installed app, and quits.
 
 ## Build from source
 
@@ -74,7 +99,8 @@ certificates, Network Extension provisioning, and Apple notarization. See
 
 ## Support
 
-Email `kulibabagood@gmail.com`.
+Found a problem? [Open an issue](https://github.com/kulibabkaaa/hearthstone-reconnect-macos/issues)
+or email `kulibabagood@gmail.com`.
 
 ## Disclaimer
 
