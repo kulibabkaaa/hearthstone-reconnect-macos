@@ -2,10 +2,10 @@
   <img src="Support/AppIconSource.png" width="136" alt="HS Reconnect app icon">
 </p>
 
-<h1 align="center">HS Reconnect</h1>
+<h1 align="center">Hearthstone Reconnect Tool for Mac</h1>
 
 <p align="center">
-  Instant Battlegrounds reconnects for macOS.
+  <strong>HS Reconnect</strong> — a free, native Hearthstone Battlegrounds reconnect tool for macOS.
 </p>
 
 <p align="center">
@@ -17,6 +17,8 @@
 
 <h3 align="center">
   <a href="https://github.com/kulibabkaaa/hearthstone-reconnect-macos/releases/latest/download/HS-Reconnect-1.0.0.dmg">Download HS Reconnect 1.0.0</a>
+  ·
+  <a href="https://kulibabkaaa.github.io/Hearthstone-Reconnect-MacOS/">Website and install guide</a>
 </h3>
 
 <p align="center">
@@ -29,9 +31,10 @@
 
 ## What it does
 
-Press one global shortcut to reconnect your current native Hearthstone
-Battlegrounds game. The default is **Command-Shift-W**, and you can change it
-inside the app.
+HS Reconnect is a native Hearthstone reconnect tool for Mac. Press one global
+shortcut to reconnect your current Hearthstone Battlegrounds game without
+closing and reopening the game. The default is **Command-Shift-W**, and you can
+change it inside the app.
 
 HS Reconnect can open quietly with Hearthstone, stay available in the menu bar,
 and show or hide its Dock icon whenever you choose.
@@ -86,6 +89,21 @@ each release. This measures release-asset downloads, not installations or active
 users. GitHub maintains this count; the app contains no download tracking.
 
 ## FAQ
+
+### Is there a Hearthstone reconnect tool for Mac?
+
+Yes. HS Reconnect is built specifically for the native macOS version of
+Hearthstone. It supports Apple silicon and Intel Macs running macOS 13 or later.
+
+### How do I reconnect Hearthstone Battlegrounds on macOS?
+
+Keep HS Reconnect open while playing, then press **Command-Shift-W** during a
+match. The app closes the current Hearthstone game connection so Hearthstone
+can reconnect immediately. You can change the shortcut in the app.
+
+### Does it support Apple silicon and Intel Macs?
+
+Yes. The signed installer supports both Apple silicon and Intel Macs.
 
 ### Why does macOS ask for Network Extension permission?
 
