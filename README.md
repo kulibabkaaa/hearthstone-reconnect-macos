@@ -16,7 +16,7 @@
 </p>
 
 <h3 align="center">
-  <a href="https://github.com/kulibabkaaa/hearthstone-reconnect-macos/releases/latest/download/HS-Reconnect-1.0.0.dmg">Download HS Reconnect 1.0.0</a>
+  <a href="https://github.com/kulibabkaaa/hearthstone-reconnect-macos/releases/latest/download/HS-Reconnect-1.1.0.dmg">Download HS Reconnect 1.1.0</a>
   ·
   <a href="https://kulibabkaaa.github.io/Hearthstone-Reconnect-MacOS/">Website and install guide</a>
 </h3>
@@ -47,7 +47,7 @@ and show or hide its Dock icon whenever you choose.
 
 ## Install
 
-1. [Download HS Reconnect 1.0.0](https://github.com/kulibabkaaa/hearthstone-reconnect-macos/releases/latest/download/HS-Reconnect-1.0.0.dmg).
+1. [Download HS Reconnect 1.1.0](https://github.com/kulibabkaaa/hearthstone-reconnect-macos/releases/latest/download/HS-Reconnect-1.1.0.dmg).
 2. Open the disk image, then open **Install HS Reconnect.pkg**.
 3. Complete the installer and open HS Reconnect from Applications or its
    Desktop shortcut.
@@ -60,6 +60,18 @@ available until setup is complete.
 Leave **Open HS Reconnect with Hearthstone** checked to start the app quietly
 with the game. The menu bar and Dock icons are visible by default; turn off
 **Show HS Reconnect in Dock** if you prefer menu-bar-only operation.
+
+## Update
+
+If HS Reconnect is already installed, do not uninstall it first. Download the
+new disk image and run **Install HS Reconnect.pkg** over the existing version.
+The installer closes the old app, replaces it in Applications, refreshes the
+Desktop shortcut, and keeps your shortcut and startup preferences.
+
+Reopen HS Reconnect after the installer finishes. macOS normally replaces the
+existing Network Extension automatically. Approve it or restart your Mac only
+if macOS asks. Use the built-in uninstaller only as a troubleshooting fallback,
+because uninstalling removes your saved settings.
 
 ## How it works
 
@@ -112,7 +124,12 @@ connection locally and close it when you request a reconnect.
 
 ### Does it work with Windows or CrossOver?
 
-No. Version 1.0.0 supports only the native macOS version of Hearthstone.
+No. Version 1.1.0 supports only the native macOS version of Hearthstone.
+
+### Do I need to uninstall the old version before updating?
+
+No. Run the new installer over the existing version. Your saved shortcut and
+startup preferences remain in place.
 
 ### Does it inspect or save my game traffic?
 
