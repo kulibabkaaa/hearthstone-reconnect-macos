@@ -159,6 +159,18 @@ struct ProxyCoreTests {
     )
   }
 
+  @Test("parses a real GameNetLogger endpoint with trailing fields")
+  func realGameNetLoggerEndpoint() {
+    let log = """
+      I 18:29:55.7872050 Network.GotoGameServe() - address= 5.42.176.73:1119, game=12, client=12345678, spectateKey=ABCDEF reconnecting=False
+      """
+
+    #expect(
+      GameLogEndpointParser.latestEndpoint(in: log)
+        == GameEndpoint(host: "5.42.176.73", port: 1119)
+    )
+  }
+
   @Test("rejects private or malformed logged endpoints")
   func rejectsUnsafeLoggedEndpoint() {
     #expect(

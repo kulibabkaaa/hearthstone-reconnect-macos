@@ -96,7 +96,14 @@ public enum GameLogEndpointParser {
       guard let range = line.range(of: marker) else { continue }
       let value = line[range.upperBound...]
         .trimmingCharacters(in: .whitespacesAndNewlines)
-      let parts = value.split(
+      guard let address = value.split(
+        separator: ",",
+        maxSplits: 1,
+        omittingEmptySubsequences: false
+      ).first else {
+        continue
+      }
+      let parts = address.split(
         separator: ":",
         maxSplits: 1,
         omittingEmptySubsequences: false

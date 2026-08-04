@@ -276,6 +276,16 @@ h2 {
   font-size: 1.06rem;
 }
 
+.install .update-note {
+  margin: 28px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.install .update-note strong {
+  color: var(--text);
+}
+
 .trust-copy {
   display: grid;
   gap: 28px;
